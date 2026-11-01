@@ -1,17 +1,23 @@
 # Tally Prime MCP Server: S Kohli edition
 
-This repository is maintained by [shubhamshub1](https://github.com/shubhamshub1) for S Kohli & Associates.
+This MCP server connects Tally Prime to Claude Desktop and other MCP clients. It is maintained by [shubhamshub1](https://github.com/shubhamshub1) for S Kohli & Associates.
 
-It is based on [dhananjay1405/tally-mcp-server](https://github.com/dhananjay1405/tally-mcp-server). The original author keeps credit under the MIT License, and the original `LICENSE` file is kept unchanged.
+## Install
+1. Download [`release/tally-prime-skohli-7.12.1.mcpb`](release/tally-prime-skohli-7.12.1.mcpb).
+2. Install it from Claude Desktop → Settings → Extensions.
+3. In Tally, go to F1 > Settings > Connectivity and set TallyPrime acts as **Server**, port **9000**.
 
-- **Install:** download `release/tally-prime-skohli-7.12.1.mcpb` and double-click it, or use Claude Desktop → Settings → Extensions → Install.
-- **Changes in this edition:** see [NOTICE-SKOHLI.md](NOTICE-SKOHLI.md). It covers the new tools (import-xml-file, inspect-xml-file, voucher-list, voucher-delete) and the GSTIN, GST duty-head and `&` name fixes.
+## What's in this edition
+See [NOTICE-SKOHLI.md](NOTICE-SKOHLI.md) for:
+- XML file import
+- voucher list and voucher delete
+- ledger GSTIN and GST duty-head update fixes
 
----
+Version history is in [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
-The original README follows.
+## License
+MIT. See [LICENSE](LICENSE).
 
-# Tally Prime MCP Server
 Tally Prime MCP (Model Context Protocol) Server implementation to feed Tally Prime ERP data to popular LLM like Claude, ChatGPT supporting MCP client. This MCP Server helps expose functionalities of Tally to LLM directly.
 
 
@@ -28,26 +34,6 @@ Port = 9000
 ```
 
 *Note: Kindly avoid using Educational version of Tally Prime, which has limitations of date range. It will result in invalid / partial data being fed to LLM, leading to highly degraded &amp; incorrect responses.*
-
-## Download
-Avoid cloning repository directly. Utility is available for download (with required dependencies) on below link <br>
-[https://excelkida.com/resource/tally-mcp-server-v7.12.zip](https://excelkida.com/resource/tally-mcp-server-v7.12.zip)
-
-One-click installer **extension** for **Claude Desktop**<br>
-[https://excelkida.com/resource/tally-mcp-server-v7.12.mcpb](https://excelkida.com/resource/tally-mcp-server-v7.12.mcpb)
-
-Last updated: version **7.12** [25-Oct-2026]
-
-Refer docs/CHANGELOG.md for details
-
-## Contact
-Project developed & maintained by:
-
-**Dhananjay Gokhale** <br>
-(Chartered Accountant)
-
-Email: **info@excelkida.com** <br>
-Whatsapp: **(+91) 90284-63366**
 
 ## Supported Platform
 Implementation was tested on below AI platform
@@ -69,8 +55,6 @@ Simply download &amp; extract zip file somewhere on the disk.  Assuming that we 
 D:\Software\Tally MCP Server
 ```
 
-<image src="https://excelkida.com/image/github/explorer-tally-mcp-server.png" height="265" width="766" />
-
 A sample setup for few popular tools is demonstrated.
 
 ### Claude Desktop
@@ -81,27 +65,17 @@ Desktop version of Claude AI supports loading of local MCP server. Ensure you ha
 
 Go to menu &gt; File &gt; Settings
 
-<image src="https://excelkida.com/image/github/claude-desktop-settings-menu.png" height="185" width="335">
-
 Extensions &gt; Advance Settings
-
-<image src="https://excelkida.com/image/github/claude-desktop-settings-extension.png" height="553" width="928">
 
 Click on install extension button
 
-<image src="https://excelkida.com/image/github/claude-desktop-extension-page.png" height="619" width="868">
-
 Browse the extension file (with file extension mcpb) download at the start
-
-<image src="https://excelkida.com/image/github/claude-desktop-extension-install.png" height="843" width="696">
 
 A dialog window will appear asking *Do you want to install Tally Prime?* click **Install** button, which would install the Tally MCP Server
 
 #### Installation via Config file (via Developer menu)
 
 Go to menu &gt; File &gt; Settings &gt; Developer
-
-<image src="https://excelkida.com/image/github/claude-desktop-developer-setting.png" height="751" width="1045" />
 
 This will open My Computer window. Right click and edit **claude_desktop_config.json** file (via Notepad) with as below JSON
 ```json
@@ -120,8 +94,6 @@ Save the file. Close Claude Desktop (menu &gt; File &gt; Exit) and again re-laun
 
 Verify by clicking on Tools button and check if Tally Prime appears in the list (screenshot below)
 
-<image src="https://excelkida.com/image/github/claude-desktop-tally-mcp-server-tool-display.png" height="595" width="722" />
-
 ### ChatGPT Desktop
 Download &amp; install ChatGPT Desktop from Microsoft Store. Login to it.
 
@@ -129,14 +101,10 @@ Go to Edit &gt; Settings
 
 Navigate to Integration &gt; Plugins. Click **Add** button and choose **Add MCP Server**
 
-<image src="https://excelkida.com/image/github/chatgpt-desktop-plugin-add-mcp.png" height="798" width="1228">
-
 In the MCP settings page enter / apply below options or values <br>
 **Name** = *Tally Prime* (or any other value) <br>
 **Command to launch** = *node* <br>
 **Arguments** = *D:\\Software\\Tally MCP Server\\dist\\index.mjs* (or other path)
-
-<image src="https://excelkida.com/image/github/chatgpt-desktop-stdio-settings.png" height="884" width="866">
 
 Click **Save** button
 

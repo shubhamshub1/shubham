@@ -3,7 +3,7 @@
   "name": "tally-mcp-server-skohli",
   "display_name": "Tally Prime (S Kohli edition)",
   "version": "7.12.1",
-  "description": "Tally Prime MCP server (fork of dhananjay1405/tally-mcp-server, MIT) with XML file import, voucher list/delete, GSTIN + GST duty-head ledger update fixes",
+  "description": "Tally Prime MCP server - S Kohli edition: reports, XML file import, voucher list/delete, ledger GSTIN and GST duty-head update",
   "author": {
     "name": "Shubham (S Kohli & Associates)",
     "url": "https://github.com/shubhamshub1"

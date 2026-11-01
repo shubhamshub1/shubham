@@ -1,8 +1,6 @@
 # Tally Prime MCP Server: S Kohli edition (7.12.1)
 
-This is a fork of [dhananjay1405/tally-mcp-server](https://github.com/dhananjay1405/tally-mcp-server) (MIT License, © 2025 Dhananjay Gokhale).
-
-## Changes in this fork
+## Features of this edition
 
 **New tools**
 

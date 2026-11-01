@@ -1,4 +1,9 @@
-# Release History
+# Change log
+
+## v7.12.1 (S Kohli edition), 01-Nov-2026
+* New tools: import-xml-file, inspect-xml-file, voucher-list and voucher-delete
+* ledger-create-update: fixed the GSTIN validation; GST registration details can be set without mailing details; new gstDutyHead option; ledger names with & now work
+
 
 ### Version: v7.12 [25-Oct-2026]
 
@@ -18,7 +23,7 @@ Fixed:
 ### Version: v7.9 [18-Oct-2026]
 
 Fixed:
-* Special character like double quotes was not being handled correctly in filter expression leading of crashing of tally.exe process as reported in bug [#37](https://github.com/dhananjay1405/tally-mcp-server/issues/37). Proper escaping now put into the place
+* Special character like double quotes was not being handled correctly in filter expression leading of crashing of tally.exe process. Proper escaping now put into the place
 
 ### Version: v7.8 [11-Oct-2026]
 
@@ -26,7 +31,7 @@ Added:
 * Documentation for the support of ChatGPT Desktop connectivity with Tally MCP Server locally
 
 Fixed:
-* Costing Method property was included twice in collection due to which Tally process was crashing [#35](https://github.com/dhananjay1405/tally-mcp-server/issues/35)
+* Costing Method property was included twice in collection due to which Tally process was crashing
 
 ### Version: v7.7 [01-Oct-2026]
 
@@ -35,14 +40,14 @@ Added:
 
 ### Version: v7.6 [04-Sep-2026]
 Fixed:
-* Tool *ledger-account* with instance where the target ledger being queried is used multiple times in a single voucher was not being aggregated leading to incorret data being returned as reporting in [#28](https://github.com/dhananjay1405/tally-mcp-server/issues/28) is now fixed
+* Tool *ledger-account* with instance where the target ledger being queried is used multiple times in a single voucher was not being aggregated leading to incorret data being returned as reporting in is now fixed
 
 ### Version: v7.5 [10-Aug-2026]
 
 Added:
 * Add many fields into collection definition to make query-collection even more robust
-* Introduced feature of blocking access to Write functionality tool as discussed in [#26](https://github.com/dhananjay1405/tally-mcp-server/issues/26) by introduction of environment variable BLOCK_WRITE
-* MCP was unable to connect to tally running of PC other than local, as localhost was hard-coded in Tally Host setting. Based on suggestion for improvement in [#25](https://github.com/dhananjay1405/tally-mcp-server/issues/25) environment variable TALLY_HOST was introduced to allow setting of IP address to connect Tally running on different computer
+* Introduced feature of blocking access to Write functionality tool by introduction of environment variable BLOCK_WRITE
+* MCP was unable to connect to tally running of PC other than local, as localhost was hard-coded in Tally Host setting. environment variable TALLY_HOST was introduced to allow setting of IP address to connect Tally running on different computer
 
 Fixed:
 * House-keeping task like upgrading of depedencies (node packages)
@@ -51,15 +56,15 @@ Fixed:
 ### Version: v7.4 [03-Jul-2026]
 
 Added:
-* Tool delete-master introduce to delete master type collection [#14](https://github.com/dhananjay1405/tally-mcp-server/issues/14)
+* Tool delete-master introduce to delete master type collection
 
 Fixed:
-* Date was being shifted by 1 day due to UTC offset. Fixed applied addressing issue [#23](https://github.com/dhananjay1405/tally-mcp-server/issues/23)
+* Date was being shifted by 1 day due to UTC offset. Fixed applied addressing issue
 
 ### Version: v7.3 [31-May-2026]
 
 Fixed:
-* Tool query-collection was crashing Tally instance when the all of the fields requested did not exists in Tally, due to which bad Tally XML request was being generated, which is fixed in https://github.com/dhananjay1405/tally-mcp-server/pull/20
+* Tool query-collection was crashing Tally instance when the all of the fields requested did not exists in Tally, due to which bad Tally XML request was being generated, (fixed)
 
 ### Version: v7.2 [13-May-2026]
 
@@ -78,15 +83,15 @@ Fixed:
 
 Added:
 * Tools **set-period** and **set-company** which can act as extra safeguard if user wants to set it as default for subsequent tool calls
-* Tool **query-collection** to quickly query various fields of collection dynamically for ad-hoc information gathering [#11](https://github.com/dhananjay1405/tally-mcp-server/issues/11)
+* Tool **query-collection** to quickly query various fields of collection dynamically for ad-hoc information gathering
 * Tools **metadata-collection** and **metadata-fields** to be used as helper functionality to gather listing of available collections and their fields for *query-collection* tool
-* Tool **query-option-values** to gather listing of drop-down values from Tally for various data-entry screens [#12](https://github.com/dhananjay1405/tally-mcp-server/issues/12)
-* Tool **ledger-create-update** to create or update ledger(s) on-the-fly in Tally [#7](https://github.com/dhananjay1405/tally-mcp-server/issues/7)
+* Tool **query-option-values** to gather listing of drop-down values from Tally for various data-entry screens
+* Tool **ledger-create-update** to create or update ledger(s) on-the-fly in Tally
 
 Fixed:
-* Database of in-memory query was changed from **DuckDB** to **PgLite** for better cross-platform experience. Justification behind this change was increasing adoption of this MCP server in Mac OS [[#10](https://github.com/dhananjay1405/tally-mcp-server/issues/10)]
+* Database of in-memory query was changed from **DuckDB** to **PgLite** for better cross-platform experience. Justification behind this change was increasing adoption of this MCP server in Mac OS []
 * Migrated many reports to use tool query-collection internally to reduce static XML templates. As a result many of XML template files are now removed in favour of internal tool call. Reports are left only for few tools which have complex TDL expression which is difficult to accommodate in query collection functionality.
-* Tool usage for reports were found to be reading template file from disk for every tool call. Caching of these templates was implemented by storing minified XML of these template in key-value variables [#13](https://github.com/dhananjay1405/tally-mcp-server/issues/13)
+* Tool usage for reports were found to be reading template file from disk for every tool call. Caching of these templates was implemented by storing minified XML of these template in key-value variables
 * TSV (Tab Separated Value) format was facing issue for few AI agents, which are designed to work only with JSON output. TSV has been removed in favour of introduction of 4 output format CSV, Markdown, JSON Array of Objects, JSON Schema and Rows
 
 ### Version: v6 [11-Nov-2025]
