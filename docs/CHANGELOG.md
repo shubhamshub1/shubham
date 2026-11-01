@@ -1,5 +1,11 @@
 # Change log
 
+## v7.13.0 (Aetherwise edition), 01-Nov-2026
+* New tool gstin-verify: GSTIN format + check digit, GSTR-1 filing status from the client's own 2A/2B, live registration data through the authorised gstinapi.in API (optional key), local cache, credit budget, throttle + retry, JSONL audit log and a GREEN / YELLOW / RED Excel report
+* New tool gstin-api-usage
+* New optional setting: gstinapi.in API key (stored as a secret by Claude Desktop)
+* Tests: `npm test`
+
 ## v7.12.2 (Aetherwise edition), 01-Nov-2026
 * New tool voucher-delete-filtered (date range + voucher type, dry run by default)
 

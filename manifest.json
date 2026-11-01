@@ -2,8 +2,8 @@
   "manifest_version": "0.3",
   "name": "tally-mcp-server-aetherwise",
   "display_name": "Tally Prime (Aetherwise edition)",
-  "version": "7.12.2",
-  "description": "Tally Prime MCP server - Aetherwise edition: reports, XML file import, voucher list/delete, ledger GSTIN and GST duty-head update",
+  "version": "7.13.0",
+  "description": "Tally Prime MCP server - Aetherwise edition: reports, XML file import, voucher list/delete, ledger GSTIN and GST duty-head update, supplier GSTIN verification (gstin-verify)",
   "author": {
     "name": "Aetherwise - Shubham Chaturvedi",
     "url": "https://aetherwise.in"
@@ -25,7 +25,8 @@
       ],
       "env": {
         "TALLY_PORT": "${user_config.TALLY_PORT}",
-        "TALLY_HOST": "${user_config.TALLY_HOST}"
+        "TALLY_HOST": "${user_config.TALLY_HOST}",
+        "GSTINAPI_API_KEY": "${user_config.GSTINAPI_API_KEY}"
       }
     }
   },
@@ -43,6 +44,14 @@
       "description": "Host name or IP address for Tally XML server",
       "required": false,
       "default": "localhost"
+    },
+    "GSTINAPI_API_KEY": {
+      "type": "string",
+      "title": "gstinapi.in API key (optional)",
+      "description": "Key from gstinapi.in for live GSTIN verification. Stored by Claude Desktop as a secret; leave blank for offline checks only.",
+      "sensitive": true,
+      "required": false,
+      "default": ""
     }
   },
   "tools": [
@@ -145,6 +154,14 @@
     {
       "name": "voucher-delete-filtered",
       "description": "deletes vouchers by date range + voucher type (dry run first)"
+    },
+    {
+      "name": "gstin-verify",
+      "description": "verifies supplier GSTINs (checksum, GSTR-1 status from 2A/2B, live registration via gstinapi.in) and writes a GREEN/YELLOW/RED Excel report with cache and audit log"
+    },
+    {
+      "name": "gstin-api-usage",
+      "description": "shows remaining gstinapi.in credits and local GSTIN cache size"
     }
   ],
   "tools_generated": false,

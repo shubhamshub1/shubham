@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import dotenv from 'dotenv';
+import path from 'node:path';
 import { importXmlFile, inspectXmlFile, deleteVouchers } from './tally.mjs';
 import { escapeDoubleQuotesTDL, deleteMasters, fetchReport, importMastersTransactions, invokeTallyAction, queryCollection, renameObjectArrayProperties, validateVoucherTypeParent, validateLedgers, validateVoucherDebitCreditBalancing, stripExtraDecimalVoucherAmount } from './tally.mjs';
 import { cacheTable, executeSQL } from './database.mjs';
@@ -681,6 +682,71 @@ export async function registerMcpServer() {
             if (!/\.xml$/i.test(args.filePath))
                 return { isError: true, content: [{ type: 'text', text: 'only .xml files are allowed' }] };
             return { content: [{ type: 'text', text: JSON.stringify(inspectXmlFile(args.filePath)) }] };
+        }
+        catch (err) {
+            return { isError: true, content: [{ type: 'text', text: String(err) }] };
+        }
+    });
+    mcpServer.registerTool('gstin-verify', {
+        title: 'Verify Supplier GSTINs',
+        description: `verifies supplier GSTINs (from an .xlsx/.csv such as a GSTR-2A/2B or purchase register export, or a list) and writes an Excel report with GREEN / YELLOW / RED and reasons. checks: local format + check digit, GSTR-1 filing status from the client's own 2A/2B columns, and live registration data (status, legal / trade name, constitution, registration / cancellation date, nature of business) through the authorised gstinapi.in API when GSTINAPI_API_KEY is configured. results are cached on this computer (default 30 days) so a GSTIN is not paid for twice. never scrapes the GST portal. run with dryRun=true first to see how many credits are needed`,
+        inputSchema: {
+            filePath: z.string().optional().describe('absolute path of .xlsx or .csv with a column whose header contains GSTIN; optional columns: name, bills, taxable, gst, first date, last date, GSTR-1 filing status, fixed monthly (Y/N), remarks'),
+            sheetName: z.string().optional(),
+            gstins: z.array(z.string()).optional().describe('GSTINs to verify instead of / in addition to filePath'),
+            clientName: z.string().describe('client name for the report and audit log'),
+            clientProfile: z.enum(['pharmacy', 'trader', 'generic']).optional().default('generic'),
+            outputPath: z.string().optional().describe('absolute path for the report .xlsx; default next to filePath or in the Aetherwise data folder'),
+            useApi: z.boolean().optional().default(true).describe('false = offline checks only, no credits used'),
+            maxApiLookups: z.number().int().min(0).max(5000).optional().default(25).describe('credit budget for this run; suppliers beyond it are left unverified (YELLOW)'),
+            returnsFy: z.string().regex(/^\d{4}-\d{2}$/).optional().describe('also fetch GSTR-1/3B filing history for this FY, e.g. 2026-27 (1 extra credit per GSTIN)'),
+            cacheMaxAgeDays: z.number().int().min(0).max(365).optional().default(30),
+            dryRun: z.boolean().optional().default(false).describe('true = no API calls; report shows how many credits a real run needs')
+        },
+        annotations: { readOnlyHint: false, openWorldHint: true, destructiveHint: false, idempotentHint: true }
+    }, async (args) => {
+        try {
+            const g = await import('./gstin.mjs');
+            let rows = [];
+            if (args.filePath)
+                rows = await g.readSupplierFile(args.filePath, args.sheetName);
+            if (args.gstins?.length)
+                rows = rows.concat(args.gstins.map(x => ({ gstin: x })));
+            if (!rows.length)
+                return { isError: true, content: [{ type: 'text', text: 'no GSTINs found - give filePath or gstins' }] };
+            const key = process.env.GSTINAPI_API_KEY || '';
+            const provider = args.useApi !== false && key ? new g.GstinApiProvider(key) : null;
+            const dir = g.dataDir();
+            const cache = new g.GstinCache(path.join(dir, 'gstin-cache.json'));
+            const { results, summary, calls } = await g.runVerification(rows, {
+                clientName: args.clientName, profile: g.CLIENT_PROFILES[args.clientProfile || 'generic'], provider, cache,
+                maxAgeDays: args.cacheMaxAgeDays ?? 30, maxApiLookups: args.maxApiLookups ?? 25, returnsFy: args.returnsFy, dryRun: args.dryRun
+            });
+            g.appendAudit(path.join(dir, 'gstin-audit.jsonl'), args.clientName, calls);
+            const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+            const safe = args.clientName.replace(/[^A-Za-z0-9]+/g, '_');
+            const out = args.outputPath || path.join(args.filePath ? path.dirname(args.filePath) : dir, `GSTIN_Verification_${safe}_${stamp}.xlsx`);
+            await g.writeReport(out, results, summary, calls);
+            const note = args.useApi !== false && !key ? 'GSTINAPI_API_KEY not configured - offline checks only. ' : '';
+            const top = results.filter(r => r.colour !== 'GREEN').slice(0, 40).map(r => ({ gstin: r.local.gstin, name: r.input.name || r.record?.legalName || '', colour: r.colour, reasons: r.reasons }));
+            return { content: [{ type: 'text', text: JSON.stringify({ note: note || undefined, report: out, summary, flagged: top }) }] };
+        }
+        catch (err) {
+            return { isError: true, content: [{ type: 'text', text: String(err) }] };
+        }
+    });
+    mcpServer.registerTool('gstin-api-usage', {
+        title: 'GSTIN API Usage',
+        description: 'returns usage / remaining credits of the configured gstinapi.in key (free call) and the size of the local GSTIN cache',
+        inputSchema: {},
+        annotations: { readOnlyHint: true, openWorldHint: true }
+    }, async () => {
+        try {
+            const g = await import('./gstin.mjs');
+            const cache = new g.GstinCache(path.join(g.dataDir(), 'gstin-cache.json'));
+            const key = process.env.GSTINAPI_API_KEY || '';
+            const usage = key ? await new g.GstinApiProvider(key).usage() : 'GSTINAPI_API_KEY not configured';
+            return { content: [{ type: 'text', text: JSON.stringify({ usage, cachedGstins: cache.size, dataFolder: g.dataDir() }) }] };
         }
         catch (err) {
             return { isError: true, content: [{ type: 'text', text: String(err) }] };
