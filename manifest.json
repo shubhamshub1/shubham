@@ -5,14 +5,14 @@
   "version": "7.12.1",
   "description": "Tally Prime MCP server - Aetherwise edition: reports, XML file import, voucher list/delete, ledger GSTIN and GST duty-head update",
   "author": {
-    "name": "Aetherwise",
-    "url": "https://github.com/shubhamshub1"
+    "name": "Aetherwise - Shubham Chaturvedi",
+    "url": "https://aetherwise.in"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/shubhamshub1/shubham.git"
   },
-  "homepage": "https://github.com/shubhamshub1/shubham#readme",
+  "homepage": "https://aetherwise.in",
   "support": "https://github.com/shubhamshub1/shubham/issues",
   "license": "MIT",
   "server": {

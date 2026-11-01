@@ -1,6 +1,6 @@
 # Tally Prime MCP Server: Aetherwise edition
 
-This MCP server connects Tally Prime to Claude Desktop and other MCP clients. It is maintained by [shubhamshub1](https://github.com/shubhamshub1) for Aetherwise.
+This MCP server connects Tally Prime to Claude Desktop and other MCP clients. It is maintained by **[Aetherwise](https://aetherwise.in)** (Shubham Chaturvedi, Director).
 
 ## Install
 1. Download [`release/tally-prime-aetherwise-7.12.1.mcpb`](release/tally-prime-aetherwise-7.12.1.mcpb).
@@ -14,6 +14,12 @@ See [NOTICE-AETHERWISE.md](NOTICE-AETHERWISE.md) for:
 - ledger GSTIN and GST duty-head update fixes
 
 Version history is in [docs/CHANGELOG.md](docs/CHANGELOG.md).
+
+## Contact
+**Aetherwise**, a tax and compliance firm based in Delhi since 1996.
+- Address: 7259/3, 3A, 1st Floor, Ajendra Market, Shakti Nagar, Delhi 110007
+- Phone: +91 11 4558 9797
+- Website: https://aetherwise.in
 
 ## License
 MIT. See [LICENSE](LICENSE).
