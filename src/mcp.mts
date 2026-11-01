@@ -770,17 +770,16 @@ export async function registerMcpServer(): Promise<McpServer> {
         const fd = utility.Date.parse(args.fromDate, 'yyyy-MM-dd'); const td = utility.Date.parse(args.toDate, 'yyyy-MM-dd');
         if (!fd || !td) return { isError: true, content: [{ type: 'text', text: 'invalid date' }] };
         const fmt = (d: Date) => utility.Date.format(d, 'd-MMM-yyyy');
-        const filters = new Map<string, string>();
-        filters.set('DateRange', `$Date >= $$Date:"${fmt(fd)}" AND $Date <= $$Date:"${fmt(td)}"`);
-        if (args.voucherType) filters.set('VchType', `$VoucherTypeName = ${escapeDoubleQuotesTDL(args.voucherType)}`);
-        if (args.partyContains) filters.set('Party', `$PartyLedgerName CONTAINS ${escapeDoubleQuotesTDL(args.partyContains)}`);
         const fields = ['Date', 'VoucherTypeName', 'VoucherNumber', 'Reference', 'PartyLedgerName', 'Amount', 'LedgerCount', 'Narration', 'MasterID', 'GUID', 'IsOptional', 'IsCancelled'];
-        const rows = await queryCollection('Voucher', fields, filters, args.targetCompany, fd, td);
+        let rows = await queryCollection('Voucher', fields, new Map<string, string>(), args.targetCompany, fd, td);
+        rows = rows.filter((r: any) => (!r.Date || (r.Date >= fd && r.Date <= td))
+          && (!args.voucherType || String(r.VoucherTypeName).toLowerCase() === args.voucherType.toLowerCase())
+          && (!args.partyContains || String(r.PartyLedgerName || '').toLowerCase().includes(args.partyContains.toLowerCase())));
         const def = lstCollectionFields.filter(c => c.collection == 'Voucher')[0].fields;
         const meta = new Map<string, string>(); def.forEach(f => meta.set(f.name, f.datatype));
         const tableID = await cacheTable(meta, rows);
         const summary: Record<string, { count: number; amount: number }> = {};
-        for (const r of rows) { const k = r.VoucherTypeName; summary[k] = summary[k] || { count: 0, amount: 0 }; summary[k].count++; summary[k].amount = Math.round((summary[k].amount + (r.Amount || 0)) * 100) / 100; }
+        for (const r of rows) { const k = r.VoucherTypeName; summary[k] = summary[k] || { count: 0, amount: 0 }; summary[k].count++; summary[k].amount = Math.round((summary[k].amount + (isNaN(r.Amount) ? 0 : (r.Amount || 0))) * 100) / 100; }
         return { content: [{ type: 'text', text: JSON.stringify({ tableID, rows: rows.length, summary }) }] };
       } catch (err) {
         return { isError: true, content: [{ type: 'text', text: JSON.stringify(err) }] };
@@ -883,7 +882,7 @@ export async function registerMcpServer(): Promise<McpServer> {
               registrationType: z.enum(['Composition', 'Regular', 'Unregistered/Consumer', 'Government entity / TDS', 'Regular - SEZ', 'Regular-Deemed Exporter', 'Regular-Exports (EOU)', 'e-Commerce Operator', 'Input Service Distributor', 'Embassy/UN Body', 'Non-Resident Taxpayer']).optional().describe('GST registration type'),
               placeOfSupply: z.string().optional().describe('place of supply for GST, validate it using query-option-values tool with input optionName as country-state with value of state property, set it blank to reset it to Not Applicable, set it undefined to keep it unchanged'),
             }).optional().describe('optional GST registration details for the ledger (party ledgers). registrationType defaults to Regular'),
-            gstDutyHead: z.enum(['Central Tax', 'State Tax', 'Integrated Tax', 'Cess']).optional().describe('only for GST duty ledgers under Duties & Taxes: sets Type of Duty/Tax = GST and the tax type (CGST ledger = Central Tax, SGST = State Tax, IGST = Integrated Tax)'),
+            gstDutyHead: z.enum(['CGST', 'SGST/UTGST', 'IGST', 'Cess']).optional().describe('only for GST duty ledgers under Duties & Taxes: sets Type of Duty/Tax = GST and the GST duty head exactly as TallyPrime names it (CGST, SGST/UTGST, IGST, Cess)'),
           })).describe('array of master data objects to create or update'),
         },
         annotations: {
