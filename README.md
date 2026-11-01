@@ -1,14 +1,14 @@
-# Tally Prime MCP Server: S Kohli edition
+# Tally Prime MCP Server: Aetherwise edition
 
-This MCP server connects Tally Prime to Claude Desktop and other MCP clients. It is maintained by [shubhamshub1](https://github.com/shubhamshub1) for S Kohli & Associates.
+This MCP server connects Tally Prime to Claude Desktop and other MCP clients. It is maintained by [shubhamshub1](https://github.com/shubhamshub1) for Aetherwise.
 
 ## Install
-1. Download [`release/tally-prime-skohli-7.12.1.mcpb`](release/tally-prime-skohli-7.12.1.mcpb).
+1. Download [`release/tally-prime-aetherwise-7.12.1.mcpb`](release/tally-prime-aetherwise-7.12.1.mcpb).
 2. Install it from Claude Desktop → Settings → Extensions.
 3. In Tally, go to F1 > Settings > Connectivity and set TallyPrime acts as **Server**, port **9000**.
 
 ## What's in this edition
-See [NOTICE-SKOHLI.md](NOTICE-SKOHLI.md) for:
+See [NOTICE-AETHERWISE.md](NOTICE-AETHERWISE.md) for:
 - XML file import
 - voucher list and voucher delete
 - ledger GSTIN and GST duty-head update fixes

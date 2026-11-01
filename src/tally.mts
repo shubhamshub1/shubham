@@ -477,7 +477,7 @@ function extractReport(reportConfig: m.ModelPullReportInfo, reportInputParams: M
 }
 
 
-// ---------------- S Kohli & Associates extensions ----------------
+// ---------------- Aetherwise extensions ----------------
 
 export interface ImportSummary { file: string; messages: number; chunks: number; CREATED: number; ALTERED: number; DELETED: number; COMBINED: number; IGNORED: number; ERRORS: number; CANCELLED: number; EXCEPTIONS: number; LASTVCHID?: number; lineErrors: string[]; }
 

@@ -1,6 +1,6 @@
 # Change log
 
-## v7.12.1 (S Kohli edition), 01-Nov-2026
+## v7.12.1 (Aetherwise edition), 01-Nov-2026
 * New tools: import-xml-file, inspect-xml-file, voucher-list and voucher-delete
 * ledger-create-update: fixed the GSTIN validation; GST registration details can be set without mailing details; new gstDutyHead option; ledger names with & now work
 

@@ -18,7 +18,7 @@ export async function registerMcpServer(): Promise<McpServer> {
   const mcpServer = new McpServer({
     name: 'Tally Prime MCP Server',
     title: 'Tally Prime',
-    version: '7.12.0-skohli.1'
+    version: '7.12.1-aetherwise'
   });
 
 
