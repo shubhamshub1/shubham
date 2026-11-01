@@ -1,0 +1,87 @@
+<ENVELOPE>
+    <HEADER>
+        <TALLYREQUEST>Import Data</TALLYREQUEST>
+    </HEADER>
+    <BODY>
+        <IMPORTDATA>
+            <REQUESTDESC>
+                <REPORTNAME>All Masters</REPORTNAME>
+                <STATICVARIABLES>
+                    {% if targetCompany %}
+                    <SVCURRENTCOMPANY>{{targetCompany | escape}}</SVCURRENTCOMPANY>
+                    {% endif %}
+                </STATICVARIABLES>
+            </REQUESTDESC>
+            <REQUESTDATA>
+                {% for master in masters %}
+                <TALLYMESSAGE>
+                    <STOCKITEM NAME="{{ master._name or master.name | escape }}" ACTION="Create">
+                        <LANGUAGENAME.LIST>
+                            <NAME.LIST>
+                                <NAME>{{ master.name | escape }}</NAME>
+                            </NAME.LIST>
+                        </LANGUAGENAME.LIST>
+                        {% if master.parent %}
+                        <PARENT>{{ master.parent | escape }}</PARENT>
+                        {% endif %}
+                        {% if master.openingBalance !== undefined %}
+                        <OPENINGBALANCE>{{ master.openingBalance }}</OPENINGBALANCE>
+                        {% endif %}
+                        {% if master.category === undefined %}
+                        {% elif master.category == '' %}
+                        <CATEGORY>&#4; Not Applicable</CATEGORY>
+                        {% else %}
+                        <CATEGORY>{{ master.category | escape }}</CATEGORY>
+                        {% endif %}
+                        {% if master.unit %}
+                        <BASEUNITS>{{ master.unit | escape }}</BASEUNITS>
+                        {% endif %}
+                        {% if master.additionalunit %}
+                        <ADDITIONALUNITS>{{ master.additionalunit | escape }}</ADDITIONALUNITS>
+                        {% endif %}
+                        {% if isGstApplicable === true %}
+                        <GSTAPPLICABLE>&#4; Applicable</GSTAPPLICABLE>
+                        {% elif isGstApplicable === false %}
+                        <GSTAPPLICABLE>&#4; Not Applicable</GSTAPPLICABLE>
+                        {% else %}
+                        {% endif %}
+                        {% if master.gstdetails %}
+                        <GSTDETAILS.LIST>
+                            <APPLICABLEFROM>{{ master.gstdetails.applicableFrom | formatDate("yyyyMMdd") }}</APPLICABLEFROM>
+                            {% if master.gstdetails.rate === undefined %}
+                            <SRCOFGSTDETAILS>As per Company/Stock Group</SRCOFGSTDETAILS>
+                            {% else %}
+                            <SRCOFGSTDETAILS>As per Company/Stock Group</SRCOFGSTDETAILS>
+                            {% endif %}
+                            <STATEWISEDETAILS.LIST>
+                                <STATENAME>&#4; Any</STATENAME>
+                                <RATEDETAILS.LIST>
+                                    <GSTRATEDUTYHEAD>CGST</GSTRATEDUTYHEAD>
+                                    <GSTRATEVALUATIONTYPE>Based on Value</GSTRATEVALUATIONTYPE>
+                                </RATEDETAILS.LIST>
+                                <RATEDETAILS.LIST>
+                                    <GSTRATEDUTYHEAD>SGST/UTGST</GSTRATEDUTYHEAD>
+                                    <GSTRATEVALUATIONTYPE>Based on Value</GSTRATEVALUATIONTYPE>
+                                </RATEDETAILS.LIST>
+                                <RATEDETAILS.LIST>
+                                    <GSTRATEDUTYHEAD>IGST</GSTRATEDUTYHEAD>
+                                    <GSTRATEVALUATIONTYPE>Based on Value</GSTRATEVALUATIONTYPE>
+                                </RATEDETAILS.LIST>
+                                <RATEDETAILS.LIST>
+                                    <GSTRATEDUTYHEAD>Cess</GSTRATEDUTYHEAD>
+                                    <GSTRATEVALUATIONTYPE>&#4; Not Applicable</GSTRATEVALUATIONTYPE>
+                                </RATEDETAILS.LIST>
+                                <RATEDETAILS.LIST>
+                                    <GSTRATEDUTYHEAD>State Cess</GSTRATEDUTYHEAD>
+                                    <GSTRATEVALUATIONTYPE>Based on Value</GSTRATEVALUATIONTYPE>
+                                </RATEDETAILS.LIST>
+                            </STATEWISEDETAILS.LIST>
+                        </GSTDETAILS.LIST>
+                        {% endif %}
+                    </STOCKITEM>
+                </TALLYMESSAGE>
+                {% endfor %}
+            </REQUESTDATA>
+        </IMPORTDATA>
+    </BODY>
+</ENVELOPE>

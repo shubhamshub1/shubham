@@ -1,0 +1,34 @@
+{
+  "name": "tally-mcp-server-skohli",
+  "version": "7.12.1",
+  "description": "Tally Prime MCP (Model Context Protocol) Server implementation to feed Tally Prime ERP data to popular LLM like Claude, ChatGPT supporting MCP",
+  "type": "module",
+  "main": "dist/server.mjs",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shubhamshub1/shubham.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/shubhamshub1/shubham/issues"
+  },
+  "homepage": "https://github.com/shubhamshub1/shubham#readme",
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.4",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "fast-xml-parser": "^5.10.1",
+    "nunjucks": "^3.2.4"
+  },
+  "devDependencies": {
+    "@types/emscripten": "^1.41.5",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.1.2",
+    "@types/nunjucks": "^3.2.6"
+  }
+}

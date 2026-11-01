@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+        "target": "es2022",
+        "module": "NodeNext",
+        "moduleResolution": "nodenext",
+        "outDir": "dist",
+        "rootDir": "src",
+        "types": [
+            "node",
+            "emscripten"
+        ],
+        "strict": true,
+        "sourceMap": true
+    },
+    "include": [
+        "./**/*"
+    ],
+    "exclude": [
+        "./node_modules"
+    ]
+}

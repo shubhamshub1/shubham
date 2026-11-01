@@ -1,0 +1,6 @@
+node_modules/
+dist/*.mjs.map
+private/
+.mcpbignore
+*.mcpb
+!release/*.mcpb
