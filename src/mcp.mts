@@ -18,7 +18,7 @@ export async function registerMcpServer(): Promise<McpServer> {
   const mcpServer = new McpServer({
     name: 'Tally Prime MCP Server',
     title: 'Tally Prime',
-    version: '7.12.1-aetherwise'
+    version: '7.12.2-aetherwise'
   });
 
 
@@ -822,6 +822,49 @@ export async function registerMcpServer(): Promise<McpServer> {
           if (!/\.xml$/i.test(args.filePath)) return { isError: true, content: [{ type: 'text', text: 'only .xml files are allowed' }] };
           const result = await importXmlFile(args.filePath, args.chunkSize || 100, args.targetCompany);
           return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+        } catch (err) { return { isError: true, content: [{ type: 'text', text: String(err) }] }; }
+      }
+    );
+
+    mcpServer.registerTool(
+      'voucher-delete-filtered',
+      {
+        title: 'Delete Vouchers by Filter',
+        description: `finds vouchers by date range + voucher type (+ optional party text and MasterID range) and deletes them by MasterID. ALWAYS run first with dryRun=true (default) and show the count / total to the user; delete only after explicit user confirmation with dryRun=false and confirm=true`,
+        inputSchema: {
+          fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+          toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+          voucherType: z.string().describe('exact voucher type name, e.g. Purchase'),
+          partyContains: z.string().optional(),
+          minMasterId: z.number().int().optional(),
+          maxMasterId: z.number().int().optional(),
+          dryRun: z.boolean().optional().default(true),
+          confirm: z.boolean().optional().default(false),
+          targetCompany: z.string().optional()
+        },
+        annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: true, idempotentHint: true }
+      },
+      async (args) => {
+        try {
+          const fd = utility.Date.parse(args.fromDate, 'yyyy-MM-dd'); const td = utility.Date.parse(args.toDate, 'yyyy-MM-dd');
+          if (!fd || !td) return { isError: true, content: [{ type: 'text', text: 'invalid date' }] };
+          let rows = await queryCollection('Voucher', ['Date', 'VoucherTypeName', 'VoucherNumber', 'PartyLedgerName', 'Amount', 'MasterID'], new Map<string, string>(), args.targetCompany, fd, td);
+          rows = rows.filter((r: any) => r.Date && r.Date >= fd && r.Date <= td
+            && String(r.VoucherTypeName).toLowerCase() === args.voucherType.toLowerCase()
+            && (!args.partyContains || String(r.PartyLedgerName || '').toLowerCase().includes(args.partyContains.toLowerCase()))
+            && (args.minMasterId === undefined || r.MasterID >= args.minMasterId)
+            && (args.maxMasterId === undefined || r.MasterID <= args.maxMasterId));
+          const total = Math.round(rows.reduce((a: number, r: any) => a + (isNaN(r.Amount) ? 0 : r.Amount), 0) * 100) / 100;
+          const ids = rows.map((r: any) => r.MasterID);
+          const info = { matched: rows.length, totalAmount: total, minMasterId: ids.length ? Math.min(...ids) : null, maxMasterId: ids.length ? Math.max(...ids) : null };
+          if (args.dryRun !== false || args.confirm !== true) return { content: [{ type: 'text', text: JSON.stringify({ dryRun: true, ...info }) }] };
+          const lst = rows.map((r: any) => ({ date: r.Date as Date, voucherType: r.VoucherTypeName, tagName: 'MasterID', tagValue: String(r.MasterID) }));
+          const res: any = { DELETED: 0, ERRORS: 0 };
+          for (let i = 0; i < lst.length; i += 100) {
+            const r: any = await deleteVouchers(lst.slice(i, i + 100), args.targetCompany);
+            res.DELETED += parseInt(r?.DELETED || 0) || 0; res.ERRORS += parseInt(r?.ERRORS || 0) || 0;
+          }
+          return { content: [{ type: 'text', text: JSON.stringify({ ...info, ...res }) }] };
         } catch (err) { return { isError: true, content: [{ type: 'text', text: String(err) }] }; }
       }
     );

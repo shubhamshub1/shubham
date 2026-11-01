@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "tally-mcp-server-aetherwise",
   "display_name": "Tally Prime (Aetherwise edition)",
-  "version": "7.12.1",
+  "version": "7.12.2",
   "description": "Tally Prime MCP server - Aetherwise edition: reports, XML file import, voucher list/delete, ledger GSTIN and GST duty-head update",
   "author": {
     "name": "Aetherwise - Shubham Chaturvedi",
@@ -141,6 +141,10 @@
     {
       "name": "voucher-delete",
       "description": "deletes vouchers by MasterID or voucher number (needs confirm)"
+    },
+    {
+      "name": "voucher-delete-filtered",
+      "description": "deletes vouchers by date range + voucher type (dry run first)"
     }
   ],
   "tools_generated": false,
