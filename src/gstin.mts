@@ -470,6 +470,7 @@ export interface Result {
   reasons: string[];              // why this colour
   verifiedFacts: string[];
   missing: string[];              // information not available / inconclusive
+  lookup?: string;                // how the live data was obtained / why not (technical status)
 }
 
 function words(s: string) { return ' ' + s.toLowerCase().replace(/[^a-z0-9]+/g, ' ') + ' '; }
@@ -653,10 +654,11 @@ export async function writeReport(file: string, results: Result[], summary: RunS
   s.addRow(['YELLOW', 'Needs confirmation (use, 17(5), pattern, or data not available). Not an adverse finding.']);
   s.addRow(['RED', 'A verified problem: invalid number, cancelled / suspended, composition charging GST, GSTR-1 not filed, or not found. Confirm with supplier before claiming ITC.']);
   s.addRow(['Note', 'A missing or unavailable record is never treated as proof that a supplier is fake.']);
+  s.addRow(['Lookup column', 'RESULT / NOT_FOUND = data read from the source. PAGE_MISSING / PARSE_FAILED / NO LIVE DATA = technical, not a compliance finding (always YELLOW).']);
 
   const w = wb.addWorksheet('Suppliers', { views: [{ state: 'frozen', ySplit: 1 }] });
   w.columns = [
-    { header: 'Result', key: 'c', width: 9 }, { header: 'GSTIN', key: 'g', width: 18 }, { header: 'Supplier (input)', key: 'n', width: 32 },
+    { header: 'Result', key: 'c', width: 9 }, { header: 'Lookup', key: 'lk', width: 16 }, { header: 'GSTIN', key: 'g', width: 18 }, { header: 'Supplier (input)', key: 'n', width: 32 },
     { header: 'Bills', key: 'b', width: 7 }, { header: 'Taxable', key: 't', width: 12 }, { header: 'GST', key: 'x', width: 11 },
     { header: 'Reasons for result', key: 'r', width: 70 },
     { header: 'Legal name (verified)', key: 'ln', width: 30 }, { header: 'Trade name (verified)', key: 'tn', width: 30 },
@@ -672,7 +674,7 @@ export async function writeReport(file: string, results: Result[], summary: RunS
   for (const r of [...results].sort((a, b) => order[a.colour] - order[b.colour] || (b.input.gst ?? 0) - (a.input.gst ?? 0))) {
     const rec = r.record;
     const row = w.addRow({
-      c: r.colour, g: r.local.gstin, n: r.input.name ?? '', b: r.input.bills ?? '', t: r.input.taxable ?? '', x: r.input.gst ?? '',
+      c: r.colour, lk: r.lookup ?? (r.record ? 'RESULT' : r.local.checksumOk ? 'NO LIVE DATA' : 'INVALID GSTIN'), g: r.local.gstin, n: r.input.name ?? '', b: r.input.bills ?? '', t: r.input.taxable ?? '', x: r.input.gst ?? '',
       r: r.reasons.join(' | '),
       ln: rec?.legalName ?? '', tn: rec?.tradeName ?? '', st: rec ? (rec.found ? rec.status ?? '' : 'NOT FOUND') : '',
       tt: rec?.taxpayerType ?? '', co: rec?.constitution ?? '', rd: rec?.registrationDate ?? '', cd: rec?.cancellationDate ?? '',
@@ -683,7 +685,7 @@ export async function writeReport(file: string, results: Result[], summary: RunS
     row.alignment = { vertical: 'top', wrapText: true };
     ['t', 'x'].forEach(k => row.getCell(k).numFmt = '#,##0.00');
   }
-  w.autoFilter = { from: 'A1', to: 'W1' };
+  w.autoFilter = { from: 'A1', to: 'X1' };
 
   const a = wb.addWorksheet('API calls (audit)');
   a.columns = [{ header: 'Time (UTC)', key: 'at', width: 24 }, { header: 'GSTIN', key: 'gstin', width: 18 }, { header: 'Endpoint', key: 'endpoint', width: 22 },

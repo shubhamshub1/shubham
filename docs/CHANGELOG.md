@@ -1,5 +1,9 @@
 # Change log
 
+## v7.16.0 (Aetherwise edition), 02-Nov-2026 - compliance release
+* REMOVED the v7.15.0 browser automation of the GST portal (visible-browser bulk search, page overlay, gstin-verify-bulk-status) and the playwright-core dependency. GSTN's website policy allows access only through interfaces expressly authorised by GSTN and prohibits scraping and contravening access controls; a connector driving the public search page is not such an interface, even with the captcha typed by the user. v7.15.0 must not be installed
+* gstin-verify-bulk now builds one consolidated report from result pages the user searched and saved (any file names, matched by the GSTIN on the page, or by file name for "no records" pages), lists missing pages, compares with Tally ledger names (Export request only) and keeps technical items (PAGE_MISSING / PARSE_FAILED) separate from verified findings (new Lookup column; technical = YELLOW, never RED)
+
 ## v7.15.0 (Aetherwise edition), 02-Nov-2026
 * New tools gstin-verify-bulk and gstin-verify-bulk-status: one request checks up to 50 GSTINs on the official GST portal. The connector opens one visible Edge / Chrome window, fills each GSTIN, waits while the user types the captcha, reads and parses the result, pauses 3 s and moves on. Runs in the background; one consolidated Excel report
 * Books comparison: party ledger names by GSTIN from Tally (read-only) and / or a supplier file; name mismatch = YELLOW

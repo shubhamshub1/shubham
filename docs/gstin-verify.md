@@ -64,21 +64,19 @@ Review of sunilhm68/GST_Status_Checker: it automates the portal with Playwright 
 policy prohibits (scraping / access only through authorised interfaces), so its access mechanism is not used. It also overwrites the
 input Excel keeping only Sheet1, saves full-page screenshots of results, pins no dependency versions and sends nothing except to the portal.
 
-## Bulk check on the official portal in one request (v7.15) - recommended
-Ask Claude, for example: "in 11 GSTIN ko portal par verify karo" → tool `gstin-verify-bulk`:
+## Consolidated report for many GSTINs (v7.16)
+1. Search each GSTIN yourself on https://services.gst.gov.in/services/searchtp (`gstin-portal-open` just opens this page) and save each result
+   with Ctrl+S ("Webpage, Single File", .mhtml) into one folder. Any file name works; naming the file with the GSTIN helps for "no records" pages.
+2. Ask Claude to run `gstin-verify-bulk`:
 ```json
-{ "gstins": ["06AACCK7823J1ZE", "06AAPFN6862J1ZN"], "clientName": "Jetaa Enterprises", "clientProfile": "pharmacy", "compareWithTally": true }
+{ "gstins": ["06AACCK7823J1ZE", "06AAPFN6862J1ZN"], "folderPath": "C:\\Users\\<you>\\Downloads\\GSTIN_Jetaa", "clientName": "Jetaa Enterprises", "clientProfile": "pharmacy" }
 ```
-1. GSTINs are de-duplicated and checked locally; invalid ones are never sent.
-2. One visible Microsoft Edge (or Chrome) window opens on https://services.gst.gov.in/services/searchtp. A green bar says which supplier is next.
-3. For each GSTIN the connector types the GSTIN; **you type the captcha and click SEARCH**. Wrong captcha: just type again.
-4. The result is read from the page, parsed, and the next GSTIN opens after 3 seconds. One search at a time.
-5. When done: one Excel report (Aetherwise data folder) + one row per supplier via `gstin-verify-bulk-status`.
+3. Result: one Excel report in that folder (Lookup column: RESULT / NOT_FOUND = read from the portal page; PAGE_MISSING / PARSE_FAILED = technical,
+   always YELLOW), plus the list of GSTINs whose page is still missing.
 
-Why the captcha stays with you: the portal shows a captcha for each search and GSTN's website policy allows access only through
-interfaces it authorises and prohibits scraping. The connector therefore never reads, sends or solves the captcha, never runs hidden
-(headless) and never runs searches in parallel. Whether one captcha covers several searches in a session has not been verified;
-if the portal does not ask again, the connector simply continues.
-
-Options: `supplierFile` (2A summary for amounts / GSTR-1 status), `perGstinTimeoutSec` (default 180), `saveToCache` (default false),
-`AETHERWISE_BROWSER_PATH` env to use a specific browser. Nothing is stored except the report and the audit line per lookup.
+Compliance position: no tool in this connector sends requests to the GST portal, drives a browser on it, reads or solves captchas.
+GSTN's website policy permits access only through interfaces it expressly authorises and prohibits scraping and contravening access
+controls / service-use limits. Fully automated GSTIN verification is possible only through an authorised channel (a GSP / ASP API such as the
+optional gstinapi.in route in `gstin-verify`, which states it reads through licensed GSP infrastructure). Without such a channel the maximum
+compliant automation is: you perform each search on the portal, the connector does everything after that (parsing, matching with Tally and
+2A, classification, one report). Tally access is read-only (Export requests).
