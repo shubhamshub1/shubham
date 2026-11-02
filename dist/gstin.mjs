@@ -158,7 +158,9 @@ export async function readSupplierFile(filePath, sheetName) {
     const cF = findCol(headers, /first.*date|from.*date/);
     const cL = findCol(headers, /last.*date|to.*date|^invoice date|^date/);
     const cR = findCol(headers, /gstr-?1.*fil.*status|filing status/);
-    const cP = findCol(headers, /gstr-?1.*period|filing period|return period|tax period/);
+    const cP = findCol(headers, /gstr-?1.*period|filing period|return period|tax period|get in period/);
+    const cR1D = findCol(headers, /^r1 date$|gstr-?1.*fil.*date|gstr-1\/iff.*date/);
+    const c3B = findCol(headers, /^3b status$|gstr-?3b.*status/);
     const cM = findCol(headers, /fixed.*month|monthly/);
     const cNote = findCol(headers, /note|remark/);
     const out = [];
@@ -177,6 +179,9 @@ export async function readSupplierFile(filePath, sheetName) {
             lastDate: normDate(pick(cL)),
             gstr1Filed: pick(cR) || undefined,
             gstr1Period: pick(cP) || undefined,
+            gstr1Date: pick(cR1D) || undefined,
+            gstr3bStatus: pick(c3B) || undefined,
+            gstr3bPeriod: c3B >= 0 ? (pick(cP) || undefined) : undefined,
             fixedMonthly: cM >= 0 ? /^(y|yes|true|1)$/i.test(pick(cM) || '') : undefined,
             note: pick(cNote) || undefined
         });
@@ -190,7 +195,7 @@ export function dedupeSuppliers(list) {
         const s = { ...s0, gstin: s0.gstin.trim().toUpperCase() };
         const e = m.get(s.gstin);
         if (!e) {
-            m.set(s.gstin, { ...s, bills: s.bills ?? 1 });
+            m.set(s.gstin, { ...s, bills: s.bills ?? 1, gstr3bPeriod: s.gstr3bStatus && /not/i.test(s.gstr3bStatus) ? s.gstr3bPeriod : undefined });
             continue;
         }
         e.bills = (e.bills ?? 1) + (s.bills ?? 1);
@@ -203,6 +208,17 @@ export function dedupeSuppliers(list) {
             e.gstr1Filed = s.gstr1Filed;
         else
             e.gstr1Filed = e.gstr1Filed || s.gstr1Filed;
+        // GSTR-3B: keep 'Not Filed' if any bill shows it, with the periods concerned
+        if (s.gstr3bStatus && /not/i.test(s.gstr3bStatus)) {
+            const prev = e.gstr3bStatus && /not/i.test(e.gstr3bStatus) ? (e.gstr3bPeriod || '').split('; ').filter(Boolean) : [];
+            e.gstr3bStatus = s.gstr3bStatus;
+            e.gstr3bPeriod = [...new Set([...prev, ...(s.gstr3bPeriod ? [s.gstr3bPeriod] : [])])].join('; ') || undefined;
+        }
+        else if (!e.gstr3bStatus)
+            e.gstr3bStatus = s.gstr3bStatus;
+        // GSTR-1 filing date counts as evidence only if every bill row has one
+        if (!s.gstr1Date)
+            e.gstr1Date = undefined;
         if (s.firstDate && (!e.firstDate || s.firstDate < e.firstDate))
             e.firstDate = s.firstDate;
         if (s.lastDate && (!e.lastDate || s.lastDate > e.lastDate))
@@ -451,11 +467,12 @@ export const CATEGORY_TEXT = {
     CANCELLED: 'registration cancelled as per source',
     SUSPENDED: 'registration suspended as per source',
     GSTR1_NOT_FILED: 'client GSTR-2A/2B shows supplier GSTR-1 not filed for the bills in the input',
+    GSTR3B_PENDING: 'client 2A/2B shows supplier GSTR-3B not filed for the period (GSTR-1 filed) - follow up; review, not a final ITC conclusion',
     TECHNICAL: 'lookup / page / parse problem - no conclusion about the supplier',
     REVIEW: 'needs human review (purpose, 17(5), name, pattern, composition, data gaps)',
     OK: 'no issue found in the checks performed'
 };
-const CAT_ORDER = ['INVALID_GSTIN', 'NOT_FOUND_AT_SOURCE', 'CANCELLED', 'SUSPENDED', 'GSTR1_NOT_FILED', 'TECHNICAL', 'REVIEW', 'OK'];
+const CAT_ORDER = ['INVALID_GSTIN', 'NOT_FOUND_AT_SOURCE', 'CANCELLED', 'SUSPENDED', 'GSTR1_NOT_FILED', 'GSTR3B_PENDING', 'TECHNICAL', 'REVIEW', 'OK'];
 function words(s) { return ' ' + s.toLowerCase().replace(/[^a-z0-9]+/g, ' ') + ' '; }
 function hasWord(text, kw) { return words(text).includes(' ' + kw.toLowerCase() + ' '); }
 const SERVICE_NOB = /service|works contract|leasing|office \/ sale office/i;
@@ -478,8 +495,18 @@ export function classify(input, local, record, profile, lookupError) {
     // only explicit values from the client's own GSTR-2A/2B are used; never inferred from the taxpayer profile
     const per = input.gstr1Period ? ` for ${input.gstr1Period}` : ' for the bills in the input file';
     const fs1 = (input.gstr1Filed ?? '').trim();
-    if (!fs1)
+    if (input.gstr1Date)
+        facts.push(`GSTR-1 filed - filing date ${input.gstr1Date} shown against the invoice(s) in client 2A/2B`);
+    const s3 = (input.gstr3bStatus ?? '').trim();
+    if (/^not\s*filed$|^n$|^no$/i.test(s3)) {
+        yellow.push(`client 2A/2B shows supplier GSTR-3B NOT FILED${input.gstr3bPeriod ? ' for ' + input.gstr3bPeriod : ''} (status as on the 2A download date; GSTR-1 is filed) - follow up with the supplier / re-check; this is return-filing evidence, not an ITC conclusion`);
+        cats.add('GSTR3B_PENDING');
+    }
+    else if (/^filed$|^y$|^yes$/i.test(s3))
+        facts.push('client 2A/2B shows supplier GSTR-3B filed');
+    if (!fs1 && !input.gstr1Date)
         missing.push('GSTR-1 filing status (not in input file - not inferred)');
+    else if (!fs1) { /* evidence via filing date */ }
     else if (/^(n|no|not filed)$/i.test(fs1)) {
         red.push(`client GSTR-2A/2B shows supplier GSTR-1 NOT FILED${per} (status as on the 2A/2B download date - re-check the latest 2B) - ITC at risk u/s 16(2)(aa)`);
         cats.add('GSTR1_NOT_FILED');
@@ -582,8 +609,9 @@ export function classify(input, local, record, profile, lookupError) {
     if (input.fixedMonthly)
         yellow.push('same amount billed every month (maintenance / rent / AMC pattern) - confirm the premises is the business premises');
     // without a live record GREEN needs: name matches the client's trade AND GSTR-1 filed as per 2A/2B
-    const offlineOk = !record && ok.length > 0 && !!input.gstr1Filed && /^y/i.test(input.gstr1Filed);
-    const colour = red.length ? 'RED' : (yellow.length || (!record && !offlineOk)) ? 'YELLOW' : 'GREEN';
+    const offlineOk = !record && ok.length > 0 && ((!!input.gstr1Filed && /^(y|yes|filed)$/i.test(input.gstr1Filed)) || !!input.gstr1Date);
+    // a technical failure (no data from the source) can never be shown as GREEN / verified
+    const colour = red.length ? 'RED' : (yellow.length || cats.has('TECHNICAL') || (!record && !offlineOk)) ? 'YELLOW' : 'GREEN';
     if (yellow.length || (colour === 'YELLOW' && !cats.has('TECHNICAL')))
         cats.add('REVIEW');
     if (!cats.size)

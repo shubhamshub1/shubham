@@ -1,5 +1,10 @@
 # Change log
 
+## v7.16.1 (Aetherwise edition), 02-Nov-2026
+* Fix: in GSTR-2A reconciliation exports the "3B Status" column is the supplier's GSTR-3B status and "R1 Date" is the GSTR-1 filing date. They are now read as such (new category GSTR3B_PENDING = YELLOW review); they were previously treated as GSTR-1 status
+* A row with a technical failure (no data from the source) can no longer be GREEN
+* Batch from the client's own GSTR-2A: one file gives supplier name, GSTR-1 filing evidence and GSTR-3B status for all suppliers (gstin-verify-bulk / gstin-verify supplierFile)
+
 ## v7.16.0 (Aetherwise edition), 02-Nov-2026 - compliance release
 * REMOVED the v7.15.0 browser automation of the GST portal (visible-browser bulk search, page overlay, gstin-verify-bulk-status) and the playwright-core dependency. GSTN's website policy allows access only through interfaces expressly authorised by GSTN and prohibits scraping and contravening access controls; a connector driving the public search page is not such an interface, even with the captcha typed by the user. v7.15.0 must not be installed
 * Classification review: composition taxpayer is information (YELLOW only when tax appears on its bills), never RED; new Finding category column (INVALID_GSTIN / NOT_FOUND_AT_SOURCE / CANCELLED / SUSPENDED / GSTR1_NOT_FILED / TECHNICAL / REVIEW / OK); technical items never described as a supplier problem; GSTR-1 non-filing only from explicit Y/N / Filed / Not Filed values in the client's own 2A/2B (optional period column), never inferred from the taxpayer profile; fields not shown on the portal page / not public listed in "Missing / inconclusive"

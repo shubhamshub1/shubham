@@ -159,7 +159,7 @@ test('classify: categories keep invalid / not found / cancelled / technical apar
   assert.equal(g.classify({ gstin: VALID[0] }, L0, { gstin: VALID[0], found: false }, P).category, 'NOT_FOUND_AT_SOURCE');
   assert.equal(g.classify({ gstin: VALID[0] }, L0, rec({ status: 'Cancelled', cancellationDate: '2026-01-01' }), P).category, 'CANCELLED');
   const t = g.classify({ gstin: VALID[0], name: 'Om Medical Agencies', gstr1Filed: 'Y' }, L0, null, P, 'TIMEOUT');
-  assert.equal(t.category, 'TECHNICAL'); assert.notEqual(t.colour, 'RED');
+  assert.equal(t.category, 'TECHNICAL'); assert.equal(t.colour, 'YELLOW', 'technical failure never GREEN or RED');
   assert.ok(t.missing.some(m => /no conclusion about the supplier/.test(m)));
   assert.ok(!t.reasons.join().match(/fake|non-compliant|cancel/i));
   assert.equal(g.classify({ gstin: VALID[0], name: 'ABC Pharma', gstr1Filed: 'Y' }, L0, rec(), P).category, 'OK');
@@ -232,4 +232,23 @@ test('audit log is append-only JSONL without the key', () => {
   g.appendAudit(f, 'C1', [{ at: 'y', gstin: VALID[1], endpoint: 'gstin', httpStatus: 404, outcome: 'nf', creditsRemaining: 1, attempt: 1, ms: 3 }]);
   const lines = fs.readFileSync(f, 'utf8').trim().split('\n');
   assert.equal(lines.length, 2); assert.equal(JSON.parse(lines[1]).client, 'C1');
+});
+
+test('2A reconciliation export: "3B Status" is GSTR-3B (not GSTR-1), "R1 Date" is GSTR-1 evidence', async () => {
+  const f = path.join(tmp, '2a.xlsx');
+  const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('invoice');
+  ws.addRow(['CLIENT (F.Y.:2026-2027)']); ws.addRow(['GSTR-2A Reconciliation Summary']);
+  ws.addRow(['sno', 'Supplier Name', 'GSTIN', 'Get in period', 'Reconcile in period', 'Invoice No', 'Invoice Date', 'Taxable Value', '3B Status', 'R1 Date']);
+  ws.addRow([1, 'X Pharma', VALID[0], 'Apr, 2026', 'Apr, 2026', 'A1', '11/04/2026', 100, 'Not Filed', '13-May-26']);
+  ws.addRow([2, 'X Pharma', VALID[0], 'May, 2026', 'May, 2026', 'A2', '11/05/2026', 100, 'Filed', '11-Jun-26']);
+  ws.addRow([3, 'X Pharma', VALID[0], 'Jun, 2026', 'Jun, 2026', 'A3', '11/06/2026', 100, 'Not Filed', '11-Jul-26']);
+  await wb.xlsx.writeFile(f);
+  const rows = await g.readSupplierFile(f);
+  assert.equal(rows[0].gstr3bStatus, 'Not Filed'); assert.equal(rows[0].gstr1Date, '13-May-26'); assert.equal(rows[0].gstr1Filed, undefined);
+  const u = g.dedupeSuppliers(rows).unique[0];
+  assert.equal(u.gstr3bPeriod, 'Apr, 2026; Jun, 2026');
+  const c = g.classify(u, L0, rec(), P);
+  assert.ok(!c.findings.includes('GSTR1_NOT_FILED'), 'never reported as GSTR-1 not filed');
+  assert.ok(c.findings.includes('GSTR3B_PENDING')); assert.equal(c.colour, 'YELLOW');
+  assert.ok(c.verifiedFacts.some(x => /GSTR-1 filed/.test(x)));
 });
