@@ -89,3 +89,11 @@ Removes the only repetitive step (saving one HTML/MHTML per supplier). The conne
 4. `gstin-worklist-report` { clientName } - one consolidated Excel any time. Pending suppliers are shown as not-yet-done / technical (never RED). Re-run after each batch; the job resumes after any interruption.
 
 Compliance: identical basis as the other GSTIN tools - the connector sends nothing to the portal, drives no browser, solves no captcha. You perform each search; the connector does the parsing, Tally (read-only) and 2A matching, classification and reporting.
+
+
+## Zero paste / zero per-supplier file: TallyPrime validation export (v7.18)
+If Jetaa has an e-Way Bill or e-Invoice login, this needs no portal page saving and no pasting:
+1. In TallyPrime: Alt+G -> "Validate Party GSTIN/UIN" -> select the creditors group -> Alt+L -> A (all parties). Log in with e-Way Bill / e-Invoice credentials when prompted. Do NOT press F9 (that updates ledgers); we stay read-only.
+2. Export that report with Alt+E to Excel (.xlsx).
+3. gstin-worklist-add { clientName, filePath: "<the exported file>" } - the connector reads every row (GSTIN + status + legal/trade name + registration/cancellation date), matches to the worklist and marks each done / not_found in one call. Then gstin-worklist-report.
+TallyPrime uses GSTN's authorised interface for the fetch; the connector never contacts the portal - it only reads the file you exported. If this specific report cannot be exported in your TallyPrime build, that is the one manual step; use the saved-page or paste route instead.

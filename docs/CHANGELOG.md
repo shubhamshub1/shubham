@@ -1,5 +1,9 @@
 # Change log
 
+## v7.18.0 (Aetherwise edition), 02-Nov-2026
+* gstin-worklist-add now also ingests a TABULAR status export in one call: give it an .xlsx/.csv that has a GSTIN column and a registration-status column (the TallyPrime "Validate Party GSTIN/UIN" report exported with Alt+E, or any status report). Every row is matched to the worklist by GSTIN and marked done / not_found - no portal page or paste needed per supplier. readSupplierFile now also reads legal/trade name, status, registration/cancellation date, taxpayer type, constitution and address columns when present
+* This is the officially-supported route: TallyPrime fetches the status from GSTN's authorised e-Way Bill / e-Invoice interface; the connector only reads the file you export (read-only, no portal access)
+
 ## v7.17.0 (Aetherwise edition), 02-Nov-2026
 * New resumable worklist so no HTML/MHTML file need be saved per supplier: gstin-worklist-start (reads supplier GSTIN + name from Tally party ledgers read-only and/or a 2A file, de-dupes, marks invalid, keeps progress on disk), gstin-worklist-add (paste the portal result text - or drop a saved file - parsed offline and matched to the queue by the GSTIN on the page; a parse failure never overwrites a good result or marks a supplier non-compliant), gstin-worklist-report (one consolidated report from whatever is resolved so far; pending suppliers shown technical/not-done, never RED; lists pending GSTINs). The connector still never contacts the GST portal and runs no browser; the user searches and solves each captcha themselves
 

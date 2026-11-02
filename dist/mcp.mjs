@@ -920,12 +920,12 @@ export async function registerMcpServer() {
     });
     mcpServer.registerTool('gstin-worklist-add', {
         title: 'Add portal result to GSTIN worklist',
-        description: `feeds one or more GST portal "Search Taxpayer" results into a client's worklist: pasted text, one saved file, or a folder of saved files. the connector parses locally (no portal access), matches each result to the worklist by the GSTIN on the page, marks it done / not_found / failed, and returns the parsed finding plus updated progress and the next pending GSTIN. a parse failure never overwrites a good result and never marks a supplier non-compliant`,
+        description: `feeds results into a client's worklist, parsed locally (no portal access) and matched by GSTIN. accepts: (a) pasted portal "Search Taxpayer" result text; (b) a saved portal page file (.mhtml/.html/.txt) or a folder of them; (c) a TABULAR status export (.xlsx/.csv) carrying a GSTIN column plus a registration-status column (e.g. the TallyPrime "Validate Party GSTIN/UIN" report exported with Alt+E, or any 2A/status report) - one call ingests every row at once. marks each done / not_found / failed; a parse failure never overwrites a good result and never marks a supplier non-compliant`,
         inputSchema: {
             clientName: z.string(),
             text: z.string().max(400000).optional().describe('text copied from one result page (Ctrl+A, Ctrl+C)'),
-            filePath: z.string().optional(),
-            folderPath: z.string().optional(),
+            filePath: z.string().optional().describe('a saved portal page (.mhtml/.html/.txt) OR a tabular status export (.xlsx/.csv)'),
+            folderPath: z.string().optional().describe('a folder of saved portal pages'),
             expectedGstin: z.string().optional()
         },
         annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false, idempotentHint: true }
@@ -934,7 +934,7 @@ export async function registerMcpServer() {
             if (!args.text && !args.filePath && !args.folderPath)
                 return { isError: true, content: [{ type: 'text', text: 'give text, filePath or folderPath' }] };
             const wl = await import('./worklist.mjs');
-            const { worklist, outcomes } = wl.addResults(args.clientName, { text: args.text, filePath: args.filePath, folderPath: args.folderPath, expectedGstin: args.expectedGstin });
+            const { worklist, outcomes } = await wl.addResults(args.clientName, { text: args.text, filePath: args.filePath, folderPath: args.folderPath, expectedGstin: args.expectedGstin });
             return { content: [{ type: 'text', text: JSON.stringify({ outcomes, progress: wl.progress(worklist) }) }] };
         }
         catch (err) {

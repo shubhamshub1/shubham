@@ -163,6 +163,15 @@ export async function readSupplierFile(filePath, sheetName) {
     const c3B = findCol(headers, /^3b status$|gstr-?3b.*status/);
     const cM = findCol(headers, /fixed.*month|monthly/);
     const cNote = findCol(headers, /note|remark/);
+    // registration-status columns (Tally "Validate Party GSTIN/UIN" export / portal status report)
+    const cSt = findCol(headers, /gstin.*status|registration status|^status$|portal status|gstin\/uin status/);
+    const cLN = findCol(headers, /legal name/);
+    const cTN = findCol(headers, /trade name/);
+    const cRD = findCol(headers, /registration date|date of registration|effective date of registration/);
+    const cCD = findCol(headers, /cancellation|date of cancellation/);
+    const cTT = findCol(headers, /taxpayer type|dealer type/);
+    const cCon = findCol(headers, /constitution/);
+    const cAddr = findCol(headers, /^address|principal place/);
     const out = [];
     for (const r of grid.slice(hi + 1)) {
         const g = (r[cG] || '').trim().toUpperCase();
@@ -183,7 +192,15 @@ export async function readSupplierFile(filePath, sheetName) {
             gstr3bStatus: pick(c3B) || undefined,
             gstr3bPeriod: c3B >= 0 ? (pick(cP) || undefined) : undefined,
             fixedMonthly: cM >= 0 ? /^(y|yes|true|1)$/i.test(pick(cM) || '') : undefined,
-            note: pick(cNote) || undefined
+            note: pick(cNote) || undefined,
+            portalStatus: pick(cSt) || undefined,
+            portalLegalName: cLN >= 0 ? (pick(cLN) || undefined) : undefined,
+            portalTradeName: cTN >= 0 ? (pick(cTN) || undefined) : undefined,
+            portalRegDate: normDate(pick(cRD)),
+            portalCancelDate: normDate(pick(cCD)),
+            portalTaxpayerType: pick(cTT) || undefined,
+            portalConstitution: pick(cCon) || undefined,
+            portalAddress: pick(cAddr) || undefined
         });
     }
     return out;

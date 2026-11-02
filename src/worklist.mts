@@ -104,11 +104,47 @@ function applyParsed(w: Worklist, r: TaxpayerResult): AddOutcome {
   return { gstin, status: item.status, category: item.status === 'not_found' ? 'NOT_FOUND_AT_SOURCE' : null, error: item.error, source_file: r.source_file, matchedToWorklist: true };
 }
 
+/** build a registration record from a status-export row (Tally validation export / status report) */
+function recordFromRow(s: g.SupplierInput): g.ProviderRecord | null {
+  const st = (s.portalStatus ?? '').trim();
+  if (!st) return null;
+  if (/no record|not found|invalid|does not exist/i.test(st)) return { gstin: s.gstin, found: false };
+  return {
+    gstin: s.gstin, found: true, status: st, legalName: s.portalLegalName ?? null, tradeName: s.portalTradeName ?? null,
+    registrationDate: s.portalRegDate ?? null, cancellationDate: s.portalCancelDate ?? null, taxpayerType: s.portalTaxpayerType ?? null,
+    constitution: s.portalConstitution ?? null, address: s.portalAddress ?? null, natureOfBusiness: null, hsn: null
+  };
+}
+
+/** ingest a tabular status export (.xlsx/.csv) - one row per GSTIN carrying the portal registration status */
+export async function ingestTable(w: Worklist, filePath: string, source: string): Promise<AddOutcome[]> {
+  const rows = g.dedupeSuppliers(await g.readSupplierFile(filePath)).unique;
+  const out: AddOutcome[] = [];
+  for (const s of rows) {
+    const item = w.items[s.gstin];
+    const rec = recordFromRow(s);
+    if (!rec) continue;                       // row has no status column value -> skip (not a status export row)
+    if (!item) { out.push({ gstin: s.gstin, status: rec.found ? 'done' : 'not_found', category: null, error: 'GSTIN not in this worklist', source_file: path.basename(filePath), matchedToWorklist: false }); continue; }
+    item.record = rec; item.source = source; item.verifiedAt = new Date().toISOString();
+    item.status = rec.found ? 'done' : 'not_found'; item.error = rec.found ? null : 'no record at source';
+    if (s.portalLegalName || s.portalTradeName) { /* name present */ }
+    item.updatedAt = item.verifiedAt;
+    out.push({ gstin: s.gstin, status: item.status, category: item.status === 'not_found' ? 'NOT_FOUND_AT_SOURCE' : null, error: item.error, source_file: path.basename(filePath), matchedToWorklist: true });
+  }
+  return out;
+}
+
 /** add one or more portal results from pasted text and/or saved files */
-export function addResults(client: string, input: { text?: string; filePath?: string; folderPath?: string; expectedGstin?: string }): { worklist: Worklist; outcomes: AddOutcome[] } {
+export async function addResults(client: string, input: { text?: string; filePath?: string; folderPath?: string; expectedGstin?: string }): Promise<{ worklist: Worklist; outcomes: AddOutcome[] }> {
   const w = load(client);
   if (!w) throw new Error(`no worklist for "${client}" - run gstin-worklist-start first`);
   const outcomes: AddOutcome[] = [];
+  // a tabular status export (Tally "Validate Party GSTIN/UIN" export, or a status report) rather than a portal page
+  if (input.filePath && /\.(xlsx|csv)$/i.test(input.filePath)) {
+    outcomes.push(...await ingestTable(w, input.filePath, 'TallyPrime / status export: ' + path.basename(input.filePath)));
+    save(w);
+    return { worklist: w, outcomes };
+  }
   const files = [...(input.filePath ? [input.filePath] : []), ...(input.folderPath ? listPortalFiles(input.folderPath) : [])];
   for (const f of files) {
     try {

@@ -88,6 +88,16 @@ export interface SupplierInput {
   gstr3bPeriod?: string;
   fixedMonthly?: boolean;     // same amount every month (maintenance / rent pattern)
   note?: string;
+  // registration status columns, when the file is a status export (TallyPrime "Validate Party GSTIN/UIN" export,
+  // or a 2A/software report that carries the portal status). Read as evidence, not inferred.
+  portalStatus?: string;
+  portalLegalName?: string;
+  portalTradeName?: string;
+  portalRegDate?: string;
+  portalCancelDate?: string;
+  portalTaxpayerType?: string;
+  portalConstitution?: string;
+  portalAddress?: string;
 }
 
 function findCol(headers: string[], ...patterns: RegExp[]): number {
@@ -167,6 +177,15 @@ export async function readSupplierFile(filePath: string, sheetName?: string): Pr
   const c3B = findCol(headers, /^3b status$|gstr-?3b.*status/);
   const cM = findCol(headers, /fixed.*month|monthly/);
   const cNote = findCol(headers, /note|remark/);
+  // registration-status columns (Tally "Validate Party GSTIN/UIN" export / portal status report)
+  const cSt = findCol(headers, /gstin.*status|registration status|^status$|portal status|gstin\/uin status/);
+  const cLN = findCol(headers, /legal name/);
+  const cTN = findCol(headers, /trade name/);
+  const cRD = findCol(headers, /registration date|date of registration|effective date of registration/);
+  const cCD = findCol(headers, /cancellation|date of cancellation/);
+  const cTT = findCol(headers, /taxpayer type|dealer type/);
+  const cCon = findCol(headers, /constitution/);
+  const cAddr = findCol(headers, /^address|principal place/);
 
   const out: SupplierInput[] = [];
   for (const r of grid.slice(hi + 1)) {
@@ -187,7 +206,15 @@ export async function readSupplierFile(filePath: string, sheetName?: string): Pr
       gstr3bStatus: pick(c3B) || undefined,
       gstr3bPeriod: c3B >= 0 ? (pick(cP) || undefined) : undefined,
       fixedMonthly: cM >= 0 ? /^(y|yes|true|1)$/i.test(pick(cM) || '') : undefined,
-      note: pick(cNote) || undefined
+      note: pick(cNote) || undefined,
+      portalStatus: pick(cSt) || undefined,
+      portalLegalName: cLN >= 0 ? (pick(cLN) || undefined) : undefined,
+      portalTradeName: cTN >= 0 ? (pick(cTN) || undefined) : undefined,
+      portalRegDate: normDate(pick(cRD)),
+      portalCancelDate: normDate(pick(cCD)),
+      portalTaxpayerType: pick(cTT) || undefined,
+      portalConstitution: pick(cCon) || undefined,
+      portalAddress: pick(cAddr) || undefined
     });
   }
   return out;
