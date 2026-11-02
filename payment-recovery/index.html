@@ -1,0 +1,270 @@
+<title>AR Associates Recovery Desk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap">
+<style>
+/* Layout: letterhead band, three ledger totals, then a filterable client register of rows with inline actions. */
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --fg:#14202e; --muted:#5a6878; --line:#d9e0e7;
+  --accent:#173f6b; --accent-fg:#ffffff; --accent-soft:#e3ecf5;
+  --bad:#b42318; --bad-soft:#fde9e7; --warn:#8a5a00; --warn-soft:#fff1d6; --good:#1b6b3a; --good-soft:#e1f3e7;
+  --font-display:"Newsreader",Georgia,serif; --font-body:"IBM Plex Sans",system-ui,sans-serif; --font-mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e1620; --surface:#16212e; --fg:#e6ecf2; --muted:#9aa9b8; --line:#2a3a4b;
+  --accent:#7fb0e6; --accent-fg:#0b1520; --accent-soft:#1d3047;
+  --bad:#ff8a7e; --bad-soft:#3a1c1a; --warn:#f2c36b; --warn-soft:#3a2d12; --good:#6fd08f; --good-soft:#14301f;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1620; --surface:#16212e; --fg:#e6ecf2; --muted:#9aa9b8; --line:#2a3a4b;
+  --accent:#7fb0e6; --accent-fg:#0b1520; --accent-soft:#1d3047;
+  --bad:#ff8a7e; --bad-soft:#3a1c1a; --warn:#f2c36b; --warn-soft:#3a2d12; --good:#6fd08f; --good-soft:#14301f;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--font-body)}
+.wrap{max-width:60rem;margin:0 auto;padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px;display:grid;gap:20px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.brand{display:flex;flex-wrap:wrap;gap:6px 24px;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--accent);padding-bottom:14px}
+.brand h1{font:600 2rem/1.1 var(--font-display);margin:0;color:var(--accent);text-wrap:balance}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:.85rem}
+.tag{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:12px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px}
+.stat b{display:block;font:500 1.6rem/1.2 var(--font-mono);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.stat.out b{color:var(--bad)} .stat.rec b{color:var(--good)}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.bar input[type=search]{flex:1 1 12rem;min-width:0}
+.field,.bar input,.bar select{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:9px 11px;width:100%;min-width:0}
+.bar select{width:auto}
+.btn{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:8px 14px;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn.sm{padding:5px 10px;font-size:.82rem}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:4px 12px;font-size:.82rem}
+.chip[aria-pressed=true]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.list{display:grid;gap:10px}
+.row{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px;display:grid;gap:10px;grid-template-columns:minmax(0,1fr) auto}
+.row.overdue{border-left:4px solid var(--bad)} .row.today{border-left:4px solid var(--warn)} .row.clear{border-left:4px solid var(--good)}
+.row h3{margin:0;font:600 1.15rem/1.3 var(--font-display);overflow-wrap:anywhere}
+.meta{display:flex;flex-wrap:wrap;gap:4px 14px;color:var(--muted);font-size:.84rem;margin-top:2px}
+.amt{text-align:right;font:500 1.25rem/1.2 var(--font-mono);font-variant-numeric:tabular-nums}
+.amt small{display:block;font:400 .72rem var(--font-body);color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.pill{display:inline-block;border-radius:99px;padding:1px 9px;font-size:.74rem;font-weight:600}
+.pill.bad{background:var(--bad-soft);color:var(--bad)} .pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.good{background:var(--good-soft);color:var(--good)} .pill.n{background:var(--accent-soft);color:var(--accent)}
+.acts{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px}
+.notes{grid-column:1/-1;font-size:.85rem;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px;display:grid;gap:3px}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:6px;padding:28px 18px;text-align:center;color:var(--muted)}
+.empty p{margin:0 0 12px}
+footer{font-size:.82rem;color:var(--muted);border-top:1px solid var(--line);padding-top:14px;display:flex;flex-wrap:wrap;gap:6px 24px;justify-content:space-between}
+.ov{position:fixed;inset:0;background:rgba(10,18,28,.55);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:max(16px,env(safe-area-inset-top,0px)) 16px 16px;z-index:20}
+.modal{background:var(--surface);border-radius:8px;border:1px solid var(--line);width:100%;max-width:30rem;padding:20px;display:grid;gap:12px;margin-top:4vh}
+.modal h2{margin:0;font:600 1.4rem var(--font-display);color:var(--accent)}
+.modal label{display:grid;gap:4px;font-size:.82rem;color:var(--muted)}
+.g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:12px}
+.modal .field{color:var(--fg)}
+.mact{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.hist{max-height:9rem;overflow:auto;font-size:.82rem;color:var(--muted);display:grid;gap:3px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:8px 16px;border-radius:6px;z-index:30;font-size:.88rem}
+textarea.field{min-height:6rem;resize:vertical;font-family:var(--font-mono);font-size:.78rem}
+@media (max-width:30rem){.row{grid-template-columns:1fr}.amt{text-align:left}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="brand">
+    <div>
+      <div class="tag">Tax · Compliance · Litigation Since 1996</div>
+      <h1>A.R. Associates</h1>
+      <p>Advocate Rakesh Kumar · Client Follow-up &amp; Recovery Desk</p>
+    </div>
+    <button class="btn primary" id="addBtn" type="button">+ New client</button>
+  </header>
+
+  <section class="stats" aria-label="Totals">
+    <div class="stat out"><span class="tag">Outstanding</span><b id="sOut">₹0</b></div>
+    <div class="stat rec"><span class="tag">Recovered</span><b id="sRec">₹0</b></div>
+    <div class="stat"><span class="tag">Clients</span><b id="sCnt">0</b></div>
+    <div class="stat"><span class="tag">Follow-ups due</span><b id="sFu">0</b></div>
+  </section>
+
+  <section class="bar" aria-label="Find clients">
+    <input type="search" id="q" placeholder="Search name, phone, list or notes" aria-label="Search clients">
+    <select id="sort" aria-label="Sort">
+      <option value="urgent">Most urgent first</option>
+      <option value="amount">Highest outstanding</option>
+      <option value="name">Name A–Z</option>
+    </select>
+  </section>
+  <div class="chips" id="chips" role="group" aria-label="Filter"></div>
+
+  <main class="list" id="list"></main>
+
+  <footer>
+    <span>7259/3, Ajendra Market, Shakti Nagar, Delhi 110007 · +91 93122 45889 · +91 99113 79710 · ar@arassociates.tax</span>
+    <span>Data is saved on this device · <button class="btn sm" id="bkBtn" type="button">Backup / restore</button></span>
+  </footer>
+</div>
+
+<div class="ov" id="ov" hidden><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+var KEY="ar_recovery_v1", clients=[], filter="all";
+var $=function(i){return document.getElementById(i)};
+function load(){try{var r=localStorage.getItem(KEY);clients=r?JSON.parse(r):[]}catch(e){clients=[]}if(!Array.isArray(clients))clients=[]}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(clients))}catch(e){toast("Could not save on this device. Use Backup to keep a copy.")}}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+var inr=new Intl.NumberFormat("en-IN");
+function money(n){return "₹"+inr.format(Math.round(n||0))}
+function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function fmt(d){if(!d)return "";var p=d.split("-");return p[2]+"/"+p[1]+"/"+p[0]}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+function paid(c){return (c.payments||[]).reduce(function(a,p){return a+p.amt},0)}
+function owed(c){return Math.max(0,(+c.due||0)-paid(c))}
+function status(c){
+  var t=today();
+  if(owed(c)<=0)return "clear";
+  if(c.dueDate&&c.dueDate<t)return "overdue";
+  if(c.nextFollow&&c.nextFollow<=t)return "today";
+  return "pending";
+}
+function fuDue(c){return owed(c)>0&&c.nextFollow&&c.nextFollow<=today()}
+function toast(m){var t=$("toast");t.textContent=m;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(function(){t.hidden=true},2600)}
+
+function render(){
+  var out=0,rec=0,fu=0;
+  clients.forEach(function(c){out+=owed(c);rec+=paid(c);if(fuDue(c))fu++});
+  $("sOut").textContent=money(out);$("sRec").textContent=money(rec);$("sCnt").textContent=clients.length;$("sFu").textContent=fu;
+  var defs=[["all","All"],["pending","Pending"],["overdue","Overdue"],["followup","Follow-up due"],["clear","Cleared"]];
+  $("chips").innerHTML=defs.map(function(d){return '<button type="button" class="chip" data-f="'+d[0]+'" aria-pressed="'+(filter===d[0])+'">'+d[1]+'</button>'}).join("");
+  var q=$("q").value.trim().toLowerCase();
+  var rows=clients.filter(function(c){
+    var s=status(c);
+    if(filter==="pending"&&owed(c)<=0)return false;
+    if(filter==="overdue"&&s!=="overdue")return false;
+    if(filter==="followup"&&!fuDue(c))return false;
+    if(filter==="clear"&&s!=="clear")return false;
+    if(q){var h=[c.name,c.phone,c.list,c.notes].join(" ").toLowerCase();if(h.indexOf(q)<0)return false}
+    return true;
+  });
+  var so=$("sort").value, rank={overdue:0,today:1,pending:2,clear:3};
+  rows.sort(function(a,b){
+    if(so==="name")return a.name.localeCompare(b.name);
+    if(so==="amount")return owed(b)-owed(a);
+    var d=rank[status(a)]-rank[status(b)];return d||owed(b)-owed(a);
+  });
+  if(!clients.length){
+    $("list").innerHTML='<div class="empty"><p>No clients yet. Add a client with the amount due, or load three example clients to see how the desk works.</p><button class="btn primary" type="button" data-a="new">+ New client</button> <button class="btn" type="button" data-a="sample">Load example clients</button></div>';return;
+  }
+  if(!rows.length){$("list").innerHTML='<div class="empty"><p>No clients match this filter.</p></div>';return}
+  $("list").innerHTML=rows.map(rowHtml).join("");
+}
+function rowHtml(c){
+  var s=status(c),pill="";
+  if(s==="clear")pill='<span class="pill good">Cleared</span>';
+  else if(s==="overdue")pill='<span class="pill bad">Overdue since '+fmt(c.dueDate)+'</span>';
+  else if(s==="today")pill='<span class="pill warn">Follow-up due</span>';
+  else pill='<span class="pill n">Pending</span>';
+  var meta=[];
+  if(c.phone)meta.push("+"+esc(c.phone));
+  if(c.list)meta.push(esc(c.list));
+  if(c.freq)meta.push("GST: "+esc(c.freq));
+  if(c.dueDate&&s!=="overdue"&&owed(c)>0)meta.push("Due "+fmt(c.dueDate));
+  if(c.nextFollow&&owed(c)>0)meta.push("Next follow-up "+fmt(c.nextFollow));
+  var last=(c.log||[]).slice(-1)[0], notes="";
+  if(c.notes)notes+='<div>'+esc(c.notes)+'</div>';
+  if(last)notes+='<div>Last note ('+fmt(last.date)+'): '+esc(last.text)+'</div>';
+  var wa=c.phone?'<a class="btn sm" target="_blank" rel="noopener" href="https://wa.me/'+encodeURIComponent(c.phone)+'?text='+encodeURIComponent(reminder(c))+'">WhatsApp reminder</a>':'';
+  return '<article class="row '+s+'" data-id="'+c.id+'"><div><h3>'+esc(c.name)+'</h3><div class="meta">'+pill+meta.map(function(m){return '<span>'+m+'</span>'}).join("")+'</div></div>'+
+   '<div class="amt"><small>Outstanding</small>'+money(owed(c))+(paid(c)?'<small>Received '+money(paid(c))+'</small>':'')+'</div>'+
+   '<div class="acts"><button class="btn sm primary" data-a="pay" type="button">Record payment</button><button class="btn sm" data-a="note" type="button">Follow-up note</button>'+wa+'<button class="btn sm" data-a="edit" type="button">Edit</button></div>'+
+   (notes?'<div class="notes">'+notes+'</div>':'')+'</article>';
+}
+function reminder(c){
+  return "Dear "+c.name+",\n\nThis is a gentle reminder from A.R. Associates regarding the pending professional fee of "+money(owed(c))+(c.dueDate?" (due "+fmt(c.dueDate)+")":"")+". Kindly arrange the payment at the earliest and share the details once done.\n\nThank you.\nA.R. Associates, Shakti Nagar, Delhi\n+91 93122 45889";
+}
+
+/* modals */
+function open(html){$("modal").innerHTML=html;$("ov").hidden=false;var f=$("modal").querySelector("input,textarea,select");if(f)f.focus()}
+function close(){$("ov").hidden=true;$("modal").innerHTML=""}
+function find(id){return clients.filter(function(c){return c.id===id})[0]}
+function clientForm(c){
+  c=c||{};var isNew=!c.id;
+  open('<h2>'+(isNew?"New client":"Edit client")+'</h2><form id="f" class="modal" style="padding:0;border:0;margin:0">'+
+   '<label>Client name<input class="field" id="fn" required value="'+esc(c.name)+'"></label>'+
+   '<div class="g2"><label>Phone (with country code, e.g. 919876543210)<input class="field" id="fp" inputmode="numeric" value="'+esc(c.phone)+'"></label>'+
+   '<label>List<input class="field" id="fl" placeholder="e.g. GST, ITR, Audit" value="'+esc(c.list)+'"></label></div>'+
+   '<div class="g2"><label>GST return frequency<select class="field" id="ff">'+["","Monthly","Quarterly (QRMP)","Annual","Not applicable"].map(function(o){return '<option'+(o===(c.freq||"")?" selected":"")+'>'+o+'</option>'}).join("")+'</select></label>'+
+   '<label>Amount due (₹), keep 0 if none<input class="field" id="fa" type="number" min="0" step="any" value="'+(c.due||0)+'"></label></div>'+
+   '<label>Due date<input class="field" id="fd" type="date" value="'+esc(c.dueDate)+'"></label>'+
+   '<label>Notes<textarea class="field" id="fo" style="font-family:inherit;font-size:inherit;min-height:4rem">'+esc(c.notes)+'</textarea></label>'+
+   '<div class="mact">'+(isNew?'':'<button class="btn" type="button" id="del" style="margin-right:auto;color:var(--bad)">Delete</button>')+'<button class="btn" type="button" id="cx">Cancel</button><button class="btn primary" type="submit">Save</button></div></form>');
+  $("cx").onclick=close;
+  if(!isNew)$("del").onclick=function(){
+    this.textContent="Tap again to delete";this.onclick=function(){clients=clients.filter(function(x){return x.id!==c.id});save();close();render();toast("Client deleted")};
+  };
+  $("f").onsubmit=function(e){
+    e.preventDefault();
+    var v={name:$("fn").value.trim(),phone:$("fp").value.replace(/\D/g,""),list:$("fl").value.trim(),freq:$("ff").value,due:Math.max(0,+$("fa").value||0),dueDate:$("fd").value,notes:$("fo").value.trim()};
+    if(!v.name)return;
+    if(isNew){v.id=uid();v.payments=[];v.log=[];v.nextFollow="";clients.push(v)}
+    else Object.keys(v).forEach(function(k){c[k]=v[k]});
+    save();close();render();toast("Saved")};
+}
+function payForm(c){
+  open('<h2>Record payment</h2><div>'+esc(c.name)+' · outstanding <b>'+money(owed(c))+'</b></div><form id="f" class="modal" style="padding:0;border:0;margin:0">'+
+   '<div class="g2"><label>Amount received (₹)<input class="field" id="pa" type="number" min="1" step="any" required value="'+owed(c)+'"></label>'+
+   '<label>Date received<input class="field" id="pd" type="date" value="'+today()+'"></label></div>'+
+   '<label>Mode or reference (optional)<input class="field" id="pn" placeholder="UPI, cheque no., cash"></label>'+
+   (c.payments&&c.payments.length?'<div class="hist">'+c.payments.map(function(p){return '<div>'+fmt(p.date)+' · '+money(p.amt)+(p.note?' · '+esc(p.note):'')+'</div>'}).join("")+'</div>':'')+
+   '<div class="mact"><button class="btn" type="button" id="cx">Cancel</button><button class="btn primary" type="submit">Save payment</button></div></form>');
+  $("cx").onclick=close;
+  $("f").onsubmit=function(e){e.preventDefault();var a=+$("pa").value;if(!(a>0))return;
+    c.payments=c.payments||[];c.payments.push({amt:a,date:$("pd").value||today(),note:$("pn").value.trim()});
+    if(owed(c)<=0)c.nextFollow="";
+    save();close();render();toast(owed(c)<=0?"Fully recovered":"Payment recorded")};
+}
+function noteForm(c){
+  open('<h2>Follow-up note</h2><div>'+esc(c.name)+' · outstanding <b>'+money(owed(c))+'</b></div><form id="f" class="modal" style="padding:0;border:0;margin:0">'+
+   '<label>Note<textarea class="field" id="nt" required style="font-family:inherit;font-size:inherit" placeholder="Spoke to accountant, promised payment by Friday"></textarea></label>'+
+   '<label>Next follow-up date (optional)<input class="field" id="nd" type="date" value="'+esc(c.nextFollow)+'"></label>'+
+   (c.log&&c.log.length?'<div class="hist">'+c.log.slice().reverse().map(function(l){return '<div>'+fmt(l.date)+' · '+esc(l.text)+'</div>'}).join("")+'</div>':'')+
+   '<div class="mact"><button class="btn" type="button" id="cx">Cancel</button><button class="btn primary" type="submit">Save note</button></div></form>');
+  $("cx").onclick=close;
+  $("f").onsubmit=function(e){e.preventDefault();var t=$("nt").value.trim();if(!t)return;
+    c.log=c.log||[];c.log.push({text:t,date:today()});c.nextFollow=$("nd").value;save();close();render();toast("Note saved")};
+}
+function backup(){
+  open('<h2>Backup / restore</h2><div style="font-size:.85rem;color:var(--muted)">Copy this text and keep it somewhere safe. To restore on another device, paste it below and press Restore. Restoring replaces the clients on this device.</div>'+
+   '<textarea class="field" id="bk"></textarea><div class="mact"><button class="btn" type="button" id="cx">Close</button><button class="btn" type="button" id="cp">Copy</button><button class="btn primary" type="button" id="rs">Restore</button></div>');
+  $("bk").value=JSON.stringify(clients);
+  $("cx").onclick=close;
+  $("cp").onclick=function(){var t=$("bk");navigator.clipboard.writeText(t.value).then(function(){toast("Copied")},function(){t.select();toast("Press copy on your keyboard")})};
+  $("rs").onclick=function(){try{var d=JSON.parse($("bk").value);if(!Array.isArray(d))throw 0;
+    d.forEach(function(c){if(!c||typeof c.name!=="string")throw 0});
+    clients=d.map(function(c){c.id=c.id||uid();c.payments=c.payments||[];c.log=c.log||[];return c});save();close();render();toast("Restored "+clients.length+" clients")}catch(e){toast("That text is not a valid backup")}};
+}
+function sample(){
+  var d=function(n){var x=new Date();x.setDate(x.getDate()+n);return x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0")};
+  clients=[
+   {id:uid(),name:"Example: Sharma Traders",phone:"919800000001",list:"GST",freq:"Monthly",due:18000,dueDate:d(-20),notes:"Example entry. Delete when done.",payments:[{amt:5000,date:d(-10),note:"UPI"}],log:[{text:"Called, will pay after stock sale",date:d(-3)}],nextFollow:d(0)},
+   {id:uid(),name:"Example: Gupta & Sons",phone:"919800000002",list:"Audit",freq:"Quarterly (QRMP)",due:35000,dueDate:d(12),notes:"Example entry.",payments:[],log:[],nextFollow:d(7)},
+   {id:uid(),name:"Example: Verma Clinic",phone:"919800000003",list:"ITR",freq:"Not applicable",due:4500,dueDate:d(-40),notes:"Example entry.",payments:[{amt:4500,date:d(-5),note:"Cheque 004512"}],log:[],nextFollow:""}
+  ];save();render();toast("Example clients loaded")}
+
+$("addBtn").onclick=function(){clientForm()};
+$("bkBtn").onclick=backup;
+$("q").oninput=render;$("sort").onchange=render;
+$("chips").onclick=function(e){var b=e.target.closest("[data-f]");if(b){filter=b.dataset.f;render()}};
+$("list").onclick=function(e){
+  var b=e.target.closest("[data-a]");if(!b)return;var a=b.dataset.a;
+  if(a==="new")return clientForm();if(a==="sample")return sample();
+  var r=b.closest("[data-id]"),c=r&&find(r.dataset.id);if(!c)return;
+  if(a==="pay")payForm(c);else if(a==="note")noteForm(c);else if(a==="edit")clientForm(c);
+};
+$("ov").onclick=function(e){if(e.target===$("ov"))close()};
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!$("ov").hidden)close()});
+load();render();
+})();
+</script>
