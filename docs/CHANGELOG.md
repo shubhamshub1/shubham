@@ -1,5 +1,8 @@
 # Change log
 
+## v7.17.0 (Aetherwise edition), 02-Nov-2026
+* New resumable worklist so no HTML/MHTML file need be saved per supplier: gstin-worklist-start (reads supplier GSTIN + name from Tally party ledgers read-only and/or a 2A file, de-dupes, marks invalid, keeps progress on disk), gstin-worklist-add (paste the portal result text - or drop a saved file - parsed offline and matched to the queue by the GSTIN on the page; a parse failure never overwrites a good result or marks a supplier non-compliant), gstin-worklist-report (one consolidated report from whatever is resolved so far; pending suppliers shown technical/not-done, never RED; lists pending GSTINs). The connector still never contacts the GST portal and runs no browser; the user searches and solves each captcha themselves
+
 ## v7.16.1 (Aetherwise edition), 02-Nov-2026
 * Fix: in GSTR-2A reconciliation exports the "3B Status" column is the supplier's GSTR-3B status and "R1 Date" is the GSTR-1 filing date. They are now read as such (new category GSTR3B_PENDING = YELLOW review); they were previously treated as GSTR-1 status
 * A row with a technical failure (no data from the source) can no longer be GREEN

@@ -80,3 +80,12 @@ controls / service-use limits. Fully automated GSTIN verification is possible on
 optional gstinapi.in route in `gstin-verify`, which states it reads through licensed GSP infrastructure). Without such a channel the maximum
 compliant automation is: you perform each search on the portal, the connector does everything after that (parsing, matching with Tally and
 2A, classification, one report). Tally access is read-only (Export requests).
+
+## Resumable worklist - no file saving (v7.17, recommended for many suppliers)
+Removes the only repetitive step (saving one HTML/MHTML per supplier). The connector never contacts the portal.
+1. `gstin-worklist-start` { clientName, gstins:[...] } - reads supplier names (and R1 date / 3B status) from Tally party ledgers (read-only) and/or a 2A file, builds a queue, marks invalid GSTINs, shows progress (e.g. 0/74) and the next pending GSTINs. Safe to re-run; progress is kept on disk (worklist_<client>.json in the Aetherwise data folder).
+2. For each pending GSTIN: search it yourself on https://services.gst.gov.in/services/searchtp, type the captcha, and on the result page press Ctrl+A, Ctrl+C.
+3. `gstin-worklist-add` { clientName, text:"<pasted>" } - paste the copied text (visible text or HTML both work; several at once is fine, or pass filePath/folderPath). The connector parses it, matches it to the queue by the GSTIN on the page, and replies with the finding and the new progress (e.g. 13/74) and next pending GSTIN.
+4. `gstin-worklist-report` { clientName } - one consolidated Excel any time. Pending suppliers are shown as not-yet-done / technical (never RED). Re-run after each batch; the job resumes after any interruption.
+
+Compliance: identical basis as the other GSTIN tools - the connector sends nothing to the portal, drives no browser, solves no captcha. You perform each search; the connector does the parsing, Tally (read-only) and 2A matching, classification and reporting.

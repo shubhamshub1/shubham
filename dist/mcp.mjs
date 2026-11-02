@@ -860,6 +860,109 @@ export async function registerMcpServer() {
             return { isError: true, content: [{ type: 'text', text: String(err?.message || err).split('\n')[0] }] };
         }
     });
+    // shared: gather supplier books (name / 2A filing evidence) from a supplier file and / or Tally (read-only)
+    async function gatherBooks(gstins, supplierFile, compareWithTally, targetCompany) {
+        const g = await import('./gstin.mjs');
+        const want = new Set(gstins.map(x => x.trim().toUpperCase()));
+        const books = new Map();
+        const src = [];
+        if (supplierFile) {
+            for (const r of g.dedupeSuppliers(await g.readSupplierFile(supplierFile)).unique)
+                if (want.has(r.gstin))
+                    books.set(r.gstin, { ...r });
+            src.push('supplier file ' + path.basename(supplierFile));
+        }
+        if (compareWithTally !== false) {
+            try {
+                const led = await queryCollection('Ledger', ['Name', 'GSTN'], new Map(), targetCompany);
+                let n = 0;
+                for (const l of led) {
+                    const gst = String(l.GSTN ?? l.gstn ?? '').trim().toUpperCase();
+                    if (!want.has(gst))
+                        continue;
+                    const e = books.get(gst) || {};
+                    if (!e.name)
+                        e.name = l.Name ?? l.name;
+                    books.set(gst, e);
+                    n++;
+                }
+                src.push(`Tally ledgers (${n} of ${want.size} found by GSTIN)`);
+            }
+            catch {
+                src.push('Tally not reachable');
+            }
+        }
+        return { books, booksSource: src.join('; ') || 'no books source given' };
+    }
+    mcpServer.registerTool('gstin-worklist-start', {
+        title: 'Start / resume GSTIN worklist',
+        description: `creates or resumes a supplier GSTIN verification worklist for a client. reads supplier names (and 2A filing evidence) from Tally party ledgers (read-only Export) and / or a supplier file, de-duplicates, marks invalid GSTINs, and keeps progress on disk so the job survives restarts. you then search each PENDING GSTIN yourself on the official portal (you type the captcha), and feed the result back with gstin-worklist-add (paste text or drop a saved file). the connector never contacts the portal. returns progress and the next pending GSTINs`,
+        inputSchema: {
+            clientName: z.string(),
+            gstins: z.array(z.string()).min(1).max(500),
+            clientProfile: z.enum(['pharmacy', 'trader', 'generic']).optional().default('generic'),
+            supplierFile: z.string().optional().describe('optional .xlsx / .csv (e.g. GSTR-2A summary) with GSTIN + name + R1 date / 3B status'),
+            compareWithTally: z.boolean().optional().default(true),
+            targetCompany: z.string().optional(),
+            reset: z.boolean().optional().default(false).describe('true discards earlier progress for this client and starts fresh')
+        },
+        annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false, idempotentHint: true }
+    }, async (args) => {
+        try {
+            const wl = await import('./worklist.mjs');
+            const { books, booksSource } = await gatherBooks(args.gstins, args.supplierFile, args.compareWithTally, args.targetCompany);
+            const w = wl.startWorklist({ client: args.clientName, profile: args.clientProfile || 'generic', gstins: args.gstins, books, booksSource, reset: args.reset });
+            return { content: [{ type: 'text', text: JSON.stringify({ booksSource, progress: wl.progress(w), portalUrl: wl.PORTAL_URL, how: 'open each pending GSTIN on the portal yourself, type the captcha, then paste the result text into gstin-worklist-add (or save the page and pass filePath / folderPath). run gstin-worklist-report any time.' }) }] };
+        }
+        catch (err) {
+            return { isError: true, content: [{ type: 'text', text: String(err?.message || err).split('\n')[0] }] };
+        }
+    });
+    mcpServer.registerTool('gstin-worklist-add', {
+        title: 'Add portal result to GSTIN worklist',
+        description: `feeds one or more GST portal "Search Taxpayer" results into a client's worklist: pasted text, one saved file, or a folder of saved files. the connector parses locally (no portal access), matches each result to the worklist by the GSTIN on the page, marks it done / not_found / failed, and returns the parsed finding plus updated progress and the next pending GSTIN. a parse failure never overwrites a good result and never marks a supplier non-compliant`,
+        inputSchema: {
+            clientName: z.string(),
+            text: z.string().max(400000).optional().describe('text copied from one result page (Ctrl+A, Ctrl+C)'),
+            filePath: z.string().optional(),
+            folderPath: z.string().optional(),
+            expectedGstin: z.string().optional()
+        },
+        annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false, idempotentHint: true }
+    }, async (args) => {
+        try {
+            if (!args.text && !args.filePath && !args.folderPath)
+                return { isError: true, content: [{ type: 'text', text: 'give text, filePath or folderPath' }] };
+            const wl = await import('./worklist.mjs');
+            const { worklist, outcomes } = wl.addResults(args.clientName, { text: args.text, filePath: args.filePath, folderPath: args.folderPath, expectedGstin: args.expectedGstin });
+            return { content: [{ type: 'text', text: JSON.stringify({ outcomes, progress: wl.progress(worklist) }) }] };
+        }
+        catch (err) {
+            return { isError: true, content: [{ type: 'text', text: String(err?.message || err).split('\n')[0] }] };
+        }
+    });
+    mcpServer.registerTool('gstin-worklist-report', {
+        title: 'GSTIN worklist report / status',
+        description: `builds the consolidated GREEN / YELLOW / RED Excel report for a client's worklist from whatever is resolved so far (safe to call any time; pending suppliers are shown as not-yet-done / technical, never RED), and returns progress plus the list of still-pending GSTINs. saveToCache keeps verified records for reuse`,
+        inputSchema: {
+            clientName: z.string(),
+            outputPath: z.string().optional(),
+            saveToCache: z.boolean().optional().default(false)
+        },
+        annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false, idempotentHint: true }
+    }, async (args) => {
+        try {
+            const g = await import('./gstin.mjs');
+            const wl = await import('./worklist.mjs');
+            const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+            const out = args.outputPath || path.join(g.dataDir(), `GSTIN_Worklist_${args.clientName.replace(/[^A-Za-z0-9]+/g, '_')}_${stamp}.xlsx`);
+            const r = await wl.buildReport(args.clientName, out, !!args.saveToCache);
+            return { content: [{ type: 'text', text: JSON.stringify(r) }] };
+        }
+        catch (err) {
+            return { isError: true, content: [{ type: 'text', text: String(err?.message || err).split('\n')[0] }] };
+        }
+    });
     mcpServer.registerTool('gstin-api-usage', {
         title: 'GSTIN API Usage',
         description: 'returns usage / remaining credits of the configured gstinapi.in key (free call) and the size of the local GSTIN cache',

@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "tally-mcp-server-aetherwise",
   "display_name": "Tally Prime (Aetherwise edition)",
-  "version": "7.16.1",
+  "version": "7.17.0",
   "description": "Tally Prime MCP server - Aetherwise edition: reports, XML file import, voucher list/delete, ledger GSTIN and GST duty-head update, supplier GSTIN verification (gstin-verify)",
   "author": {
     "name": "Aetherwise - Shubham Chaturvedi",
@@ -174,6 +174,18 @@
     {
       "name": "gstin-verify-bulk",
       "description": "one consolidated GREEN/YELLOW/RED report for many GSTINs from GST portal result pages you searched and saved in one folder; compares with Tally ledger names (read-only); lists missing pages; offline"
+    },
+    {
+      "name": "gstin-worklist-start",
+      "description": "start/resume a supplier GSTIN worklist from Tally + 2A (read-only); tracks progress on disk"
+    },
+    {
+      "name": "gstin-worklist-add",
+      "description": "feed a portal result (pasted text or saved file) into the worklist; parsed offline, matched by GSTIN"
+    },
+    {
+      "name": "gstin-worklist-report",
+      "description": "consolidated GREEN/YELLOW/RED Excel from the worklist so far; lists pending GSTINs"
     }
   ],
   "tools_generated": false,
