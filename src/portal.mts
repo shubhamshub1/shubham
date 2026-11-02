@@ -172,26 +172,25 @@ function parseHsnSection(lines: string[]): { goods: HsnItem[]; services: HsnItem
   let start = lines.findIndex(l => /dealing in goods/i.test(l));
   if (start < 0) start = lines.findIndex(l => /^goods and services$/i.test(l));
   if (start < 0) return { goods, services };
-  let mode: 'goods' | 'services' = 'goods';
   for (let j = start + 1; j < lines.length; j++) {
     const l = lines[j];
-    if (LABELS.some(x => x.re.test(l)) || /^(show filing table|filing table|close|back)$/i.test(l)) break;
-    if (/^services?$/i.test(l)) { mode = 'services'; continue; }
-    if (/^goods$/i.test(l)) { mode = 'goods'; continue; }
+    if (LABELS.some(x => x.re.test(l)) || /^(show filing table|filing table|close|back|hsn:)$/i.test(l)) break;
+    if (/^(services?|goods)$/i.test(l)) continue;
     const m = l.match(/^(\d{4,8})\s*[-:]?\s*(.*)$/);
     if (!m) continue;
     let desc = m[2].trim();
     if (!desc && lines[j + 1] && !/^\d{4,8}\b/.test(lines[j + 1]) && !ANY_LABEL(lines[j + 1])) { desc = lines[j + 1]; j++; }
     const code = m[1];
-    const isSac = code.startsWith('99') && code.length === 6;
+    // services: SAC 99xxxx, or the old service-tax accounting codes 0044xxxx still shown for pre-2017 registrations
+    const isSac = (code.startsWith('99') && code.length === 6) || /^0044\d{4}$/.test(code);
     const item: HsnItem = { code, description: desc || null, kind: isSac ? 'sac' : 'hsn' };
-    (isSac || mode === 'services' ? services : goods).push(item);
+    (isSac ? services : goods).push(item);
   }
   return { goods, services };
 }
 
 export function parsePortalText(text: string, opts: { expectedGstin?: string; sourceFile?: string | null; retrievedAt?: string | null } = {}): TaxpayerResult {
-  const lines = toLines(text);
+  let lines = toLines(text);
   const warnings: string[] = [];
   const t: TaxpayerResult['taxpayer'] = {
     legal_name: null, trade_name: null, registration_status: null, status_category: null, registration_date: null,
@@ -222,6 +221,16 @@ export function parsePortalText(text: string, opts: { expectedGstin?: string; so
     return finish(res, opts.expectedGstin);
   }
   res.page_state = 'RESULT';
+
+  // only the result block: from "Search Result based on ..." (or the first label) to "Show Filing Table" / footer
+  let rs = lines.findIndex(l => /^search result based on/i.test(l));
+  if (rs < 0) rs = Math.max(0, lines.findIndex(l => /^legal name of business/i.test(l)) - 1);
+  let re = lines.findIndex((l, k) => k > rs && /^(show filing table|show return filing frequency|about gst|website polic)/i.test(l));
+  if (re < 0) re = lines.length;
+  const all = lines;
+  const lines2 = all.slice(rs, re);
+  const gm = lines2[0]?.match(/\b\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]\b/); if (gm) res.gstin = gm[0];
+  lines = lines2;
 
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];

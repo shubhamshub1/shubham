@@ -400,9 +400,16 @@ export const REVIEW_HSN = [
     { prefix: '9987', label: 'repair & maintenance services' }, { prefix: '9963', label: 'hotel / restaurant' }, { prefix: '9964', label: 'passenger transport' },
     { prefix: '9971', label: 'insurance / financial' }, { prefix: '9997', label: 'other personal services' }
 ];
+// description words (also covers the old service-tax codes 0044xxxx that have no SAC prefix)
+const REVIEW_DESC = /maintenance|repair|renting of immovable|works contract|construction|manpower|security|cleaning|housekeeping|catering|outdoor catering|rent.?a.?cab|tour operator|beauty|health club|fitness|interior decorat|architect|real estate/i;
 export function hsnReview(items, profile) {
     const ok = items.filter(h => (profile.okHsnPrefixes || []).some(p => h.code.startsWith(p))).map(h => h.code);
-    const review = items.flatMap(h => REVIEW_HSN.filter(r => h.code.startsWith(r.prefix)).map(r => `${h.code} ${r.label}`));
+    const review = items.flatMap(h => {
+        const byCode = REVIEW_HSN.filter(r => h.code.startsWith(r.prefix)).map(r => `${h.code} ${r.label}`);
+        if (byCode.length)
+            return byCode;
+        return h.description && REVIEW_DESC.test(h.description) ? [`${h.code} ${h.description.toLowerCase()}`] : [];
+    });
     return { ok, review };
 }
 const COMMON_REVIEW = ['construction', 'builder', 'buildcon', 'infra', 'cement', 'tiles', 'marble', 'sanitary', 'hardware', 'paint',

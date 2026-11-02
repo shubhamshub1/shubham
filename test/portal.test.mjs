@@ -82,6 +82,21 @@ test('missing / empty field values -> not success, missing fields marked not_pro
   assert.equal(r.field_availability.registration_status, 'not_provided_by_source');
 });
 
+test('real portal layout (2026): nav e-Invoice ignored, side-by-side Goods/Services headers, old 0044 service codes = SAC', () => {
+  const r = parseFile('portal_real_layout.txt');
+  assert.equal(r.success, true); assert.equal(r.gstin, '06AAPFU0939F1ZZ');
+  assert.equal(r.taxpayer.einvoice_status, null);
+  assert.equal(r.taxpayer.jurisdiction.centre, 'State - CBIC, Range - R-1');
+  assert.equal(r.taxpayer.jurisdiction.state, 'State - Haryana, Ward - Sample Ward 1');
+  assert.deepEqual(r.taxpayer.nature_of_business, ['Service Provision', 'Works Contract']);
+  assert.equal(r.taxpayer.hsn_details.length, 0);
+  assert.deepEqual(r.taxpayer.sac_details.map(h => [h.code, h.kind]), [['00440245', 'sac'], ['00440406', 'sac']]);
+  const rec = p.toProviderRecord(r);
+  const c = g.classify({ gstin: rec.gstin, name: 'Sample Facility Services' }, g.validateGstinLocal(rec.gstin), rec, g.CLIENT_PROFILES.pharmacy);
+  assert.equal(c.colour, 'YELLOW');
+  assert.ok(c.reasons.some(x => /renting of immovable/.test(x)));
+});
+
 test('empty / garbage input', () => {
   assert.equal(p.parsePortalText('').page_state, 'EMPTY');
   assert.equal(p.parsePortalText('\u0000\u0001 binary %%%').page_state, 'UNRECOGNISED');
@@ -98,7 +113,7 @@ test('file type and size guards', () => {
   assert.throws(() => p.readPortalFile(exe), /supported files/);
   const big = path.join(tmp, 'big.html'); fs.writeFileSync(big, Buffer.alloc(16 * 1024 * 1024, 32));
   assert.throws(() => p.readPortalFile(big), /15 MB/);
-  assert.deepEqual(p.listPortalFiles(path.join(here, 'fixtures')).length, 7);
+  assert.deepEqual(p.listPortalFiles(path.join(here, 'fixtures')).length, 8);
 });
 
 test('portal record feeds gstin-verify: pharmacy HSN = GREEN, construction HSN cancelled = RED', () => {
@@ -144,7 +159,7 @@ test('MCP: tools registered (old + new) and gstin-search-taxpayer works without 
   for (const n of ['trial-balance', 'ledger-account', 'list-master', 'import-xml-file', 'voucher-list', 'voucher-delete-filtered', 'ledger-create-update', 'gstin-verify', 'gstin-api-usage', 'gstin-portal-open', 'gstin-search-taxpayer'])
     assert.ok(names.includes(n), 'missing tool ' + n);
   const body = JSON.parse(got.get(3).result.content[0].text);
-  assert.deepEqual(body.summary, { pages: 7, parsed_ok: 3, not_found: 1, failed: 3, saved_to_cache: 2 });
+  assert.deepEqual(body.summary, { pages: 8, parsed_ok: 4, not_found: 1, failed: 3, saved_to_cache: 3 });
   const cache = JSON.parse(fs.readFileSync(path.join(data, 'gstin-cache.json'), 'utf8'));
   assert.equal(cache['27AAPFU0939F1ZV'].source, p.PORTAL_SOURCE);
   assert.ok(!JSON.stringify(body).match(/at .*\.mjs:\d+/), 'no stack traces to client');

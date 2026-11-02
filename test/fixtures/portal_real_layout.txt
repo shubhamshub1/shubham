@@ -1,0 +1,59 @@
+Goods and Services Tax
+Services
+Search HSN Code
+status of invoice data to be shared with ICEGATE
+e-Invoice
+News and Updates
+Search Taxpayer
+Search Result based on GSTIN/UIN : 06AAPFU0939F1ZZ
+Legal Name of Business
+SAMPLE FACILITY SERVICES PRIVATE LIMITED
+Trade Name
+SAMPLE FACILITY SERVICES PRIVATE LIMITED
+Effective Date of registration
+01/07/2017
+Constitution of Business
+Private Limited Company
+GSTIN / UIN Status
+Active
+Taxpayer Type
+Regular
+Administrative Office
+(JURISDICTION - STATE)
+State - Haryana
+Ward - Sample Ward 1
+Other Office
+(JURISDICTION - CENTER)
+State - CBIC
+Range - R-1
+Principal Place of Business
+SAMPLE TOWER, SAMPLE ROAD, Gurugram, Haryana, 122001
+Whether Aadhaar Authenticated?
+No
+Whether e-KYC Verified?
+No
+Additional Trade Name
+View
+Nature Of Core Business Activity
+Service Provider and Others
+Nature of Business Activities
+1.
+Service Provision
+2.
+Works Contract
+Dealing In Goods and Services
+Goods
+Services
+HSN
+Description
+HSN
+Description
+00440245
+MAINTENANCE OR REPAIR SERVICE
+00440406
+RENTING OF IMMOVABLE PROPERTY SERVICES
+HSN:
+Harmonized System of Nomenclature of Goods and Services
+Show Filing Table
+SHOW RETURN FILING FREQUENCY
+Website Policies

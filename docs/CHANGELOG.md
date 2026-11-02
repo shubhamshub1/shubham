@@ -1,5 +1,9 @@
 # Change log
 
+## v7.14.1 (Aetherwise edition), 02-Nov-2026
+* gstin-search-taxpayer tested on a real portal result page: reads only the result block (site menu "e-Invoice" no longer mistaken for a field), Goods / Services classified by code (SAC 99xxxx and old service-tax codes 0044xxxx = services)
+* gstin-verify: service descriptions (maintenance / repair, renting of immovable property, works contract, manpower, security...) flagged for 17(5) review
+
 ## v7.14.0 (Aetherwise edition), 02-Nov-2026
 * New tools gstin-portal-open and gstin-search-taxpayer: user-assisted lookup on the official GST portal (user enters GSTIN + captcha in own browser, saves / copies the result page); the connector parses it offline into structured fields incl. jurisdiction, nature of business and declared HSN / SAC, with field_availability per field. No API key, no request to any service
 * gstin-verify: uses declared HSN / SAC (pharmacy HSN = trade, construction / facility / repair SAC = review) and shows them in the report
