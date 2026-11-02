@@ -37,3 +37,29 @@ Missing data is shown in its own column and is never treated as proof that a sup
 ## Credits
 - `dryRun=true` shows credits needed. `maxApiLookups` (default 25) caps a run. Cached GSTINs cost nothing.
 - Provider rate limit is 60/min; the tool sends at most one call per 1.1 s and retries 429 / 502 / network errors with backoff (Retry-After honoured). 401 / 402 / 403 stop the run.
+
+## No-key route: official GST portal, user-assisted (v7.14)
+1. Ask Claude: "GST portal kholo" → tool `gstin-portal-open` opens https://services.gst.gov.in/services/searchtp in your default browser.
+2. You type the GSTIN and the captcha yourself and click SEARCH (the connector never solves or sees the captcha).
+3. On the result page press **Ctrl+S → "Webpage, Single File (*.mhtml)"** and save into one folder, e.g. `Downloads\GSTIN_Jetaa\06AANCS6595E1ZV.mhtml`.
+   Alternatively Ctrl+A, Ctrl+C and paste into a .txt file, or paste the text to Claude.
+4. Ask Claude to run `gstin-search-taxpayer` with `folderPath` (and `saveToCache: true` to reuse the records in `gstin-verify`).
+
+Example invocation:
+```json
+{ "folderPath": "C:\\Users\\<you>\\Downloads\\GSTIN_Jetaa", "saveToCache": true }
+```
+
+Returned per page: `success`, `gstin`, `source`, `source_file`, `retrieved_at` (file save time), `parsed_at`, `verification_method`,
+`page_state` (RESULT / NOT_FOUND / CAPTCHA_PENDING / UNRECOGNISED / EMPTY), `taxpayer` {legal_name, trade_name, registration_status,
+status_category, registration_date, cancellation_date, constitution_of_business, taxpayer_type, principal_place_of_business,
+additional_places_of_business, jurisdiction {centre, state}, nature_of_core_business_activity, nature_of_business, aadhaar_authenticated,
+ekyc_verified, einvoice_status, hsn_details, sac_details}, `field_availability`, `warnings`, `error`.
+
+Not available from this route: return filing history (shown only behind a further click; use the client's GSTR-2A/2B filing status column),
+supplier e-mail / mobile (not public). Parsing is label based; if GSTN changes the page layout the tool reports UNRECOGNISED instead of guessing.
+
+Privacy: no network request is made by these tools; nothing is stored unless `saveToCache` is true (local cache file only).
+Review of sunilhm68/GST_Status_Checker: it automates the portal with Playwright and solves the captcha with a CNN, which GSTN's website
+policy prohibits (scraping / access only through authorised interfaces), so its access mechanism is not used. It also overwrites the
+input Excel keeping only Sheet1, saves full-page screenshots of results, pins no dependency versions and sends nothing except to the portal.

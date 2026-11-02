@@ -388,6 +388,23 @@ export function appendAudit(file, client, calls) {
         return;
     fs.appendFileSync(file, calls.map(c => JSON.stringify({ client, ...c })).join('\n') + '\n');
 }
+// HSN / SAC prefixes that usually point to 17(5) / capital / personal items (review, not a conclusion)
+export const REVIEW_HSN = [
+    { prefix: '2523', label: 'cement' }, { prefix: '68', label: 'stone / cement articles' }, { prefix: '69', label: 'tiles / ceramics / sanitaryware' },
+    { prefix: '72', label: 'iron & steel' }, { prefix: '73', label: 'iron / steel articles' }, { prefix: '7610', label: 'aluminium structures' },
+    { prefix: '3208', label: 'paints' }, { prefix: '3209', label: 'paints' }, { prefix: '4410', label: 'boards / plywood' }, { prefix: '4412', label: 'plywood' },
+    { prefix: '94', label: 'furniture / lighting' }, { prefix: '8415', label: 'air conditioners' }, { prefix: '87', label: 'vehicles / parts' },
+    { prefix: '7113', label: 'jewellery' }, { prefix: '61', label: 'garments' }, { prefix: '62', label: 'garments' }, { prefix: '64', label: 'footwear' },
+    { prefix: '9954', label: 'construction services / works contract' }, { prefix: '9972', label: 'real estate services' },
+    { prefix: '998521', label: 'security services' }, { prefix: '998533', label: 'cleaning / housekeeping' }, { prefix: '998534', label: 'facility / maintenance' },
+    { prefix: '9987', label: 'repair & maintenance services' }, { prefix: '9963', label: 'hotel / restaurant' }, { prefix: '9964', label: 'passenger transport' },
+    { prefix: '9971', label: 'insurance / financial' }, { prefix: '9997', label: 'other personal services' }
+];
+export function hsnReview(items, profile) {
+    const ok = items.filter(h => (profile.okHsnPrefixes || []).some(p => h.code.startsWith(p))).map(h => h.code);
+    const review = items.flatMap(h => REVIEW_HSN.filter(r => h.code.startsWith(r.prefix)).map(r => `${h.code} ${r.label}`));
+    return { ok, review };
+}
 const COMMON_REVIEW = ['construction', 'builder', 'buildcon', 'infra', 'cement', 'tiles', 'marble', 'sanitary', 'hardware', 'paint',
     'plywood', 'interior', 'furniture', 'furnish', 'electrical', 'electricals', 'facility', 'faciliteez', 'maintenance', 'housekeeping',
     'security', 'restaurant', 'hotel', 'caterer', 'catering', 'sweets', 'bakery', 'travels', 'tours', 'motors', 'automobile', 'auto',
@@ -398,7 +415,10 @@ export const CLIENT_PROFILES = {
         okKeywords: ['pharma', 'pharmaceutical', 'medical', 'medicos', 'medicose', 'medicine', 'drug', 'chemist', 'surgical', 'healthcare',
             'health care', 'life science', 'lifescience', 'biotech', 'remedies', 'labs', 'laboratories', 'distributor', 'agencies', 'agency',
             'ayurved', 'herbal', 'diagnostic', 'nutrition', 'wellness', 'hospital'],
-        reviewKeywords: COMMON_REVIEW
+        reviewKeywords: COMMON_REVIEW,
+        // medicines, nutrition, cosmetics / toiletries, surgical & medical devices, gloves, packing, diapers / sanitary
+        okHsnPrefixes: ['30', '2106', '2202', '1901', '0402', '3304', '3305', '3306', '3307', '3401', '3402', '3005', '3006', '3822',
+            '9018', '9019', '9020', '9021', '9025', '9027', '4014', '4015', '3926', '4818', '4819', '4823', '3923', '6307', '9619', '2936', '2941', '3002', '3003']
     },
     trader: { name: 'General trader', okKeywords: ['traders', 'trading', 'distributor', 'agencies', 'wholesale'], reviewKeywords: COMMON_REVIEW },
     generic: { name: 'Generic', okKeywords: [], reviewKeywords: COMMON_REVIEW }
@@ -479,6 +499,20 @@ export function classify(input, local, record, profile, lookupError) {
         yellow.push(`name suggests non-trade purchase (${rv.join(', ')}) - confirm business use / 17(5)`);
     if (ok.length)
         facts.push(`name matches client trade (${ok.join(', ')})`);
+    if (record?.hsn?.length) {
+        const h = hsnReview(record.hsn, profile);
+        facts.push(`declared HSN / SAC: ${record.hsn.map(x => x.code + (x.description ? ' ' + x.description : '')).join('; ')}`);
+        if (h.review.length && !h.ok.length)
+            yellow.push(`supplier's declared HSN / SAC point to non-trade items (${h.review.join(', ')}) - confirm business use / 17(5)`);
+        else if (h.review.length)
+            yellow.push(`supplier deals in trade items and also in ${h.review.join(', ')} - check what was billed`);
+        else if (profile.okHsnPrefixes?.length && h.ok.length)
+            facts.push(`declared HSN match client trade (${h.ok.join(', ')})`);
+        else if (profile.okHsnPrefixes?.length)
+            yellow.push('declared HSN / SAC do not match the client\'s usual purchases - check what was billed');
+    }
+    else if (record?.found)
+        missing.push('declared HSN / SAC (not in this source)');
     if (input.fixedMonthly)
         yellow.push('same amount billed every month (maintenance / rent / AMC pattern) - confirm the premises is the business premises');
     // without a live record GREEN needs: name matches the client's trade AND GSTR-1 filed as per 2A/2B
@@ -601,7 +635,7 @@ export async function writeReport(file, results, summary, calls) {
         { header: 'Legal name (verified)', key: 'ln', width: 30 }, { header: 'Trade name (verified)', key: 'tn', width: 30 },
         { header: 'Status (verified)', key: 'st', width: 12 }, { header: 'Taxpayer type', key: 'tt', width: 13 },
         { header: 'Constitution', key: 'co', width: 18 }, { header: 'Reg. date', key: 'rd', width: 11 }, { header: 'Cancel date', key: 'cd', width: 11 },
-        { header: 'Nature of business (verified)', key: 'nb', width: 40 }, { header: 'Address (verified)', key: 'ad', width: 40 },
+        { header: 'Nature of business (verified)', key: 'nb', width: 40 }, { header: 'Declared HSN / SAC (verified)', key: 'hs', width: 40 }, { header: 'Address (verified)', key: 'ad', width: 40 },
         { header: 'GSTR-1 filed (2A/2B)', key: 'r1', width: 10 },
         { header: 'Verified facts', key: 'vf', width: 60 }, { header: 'Missing / inconclusive', key: 'ms', width: 50 },
         { header: 'Source', key: 'src', width: 28 }, { header: 'Verified at (UTC)', key: 'va', width: 22 }
@@ -615,14 +649,14 @@ export async function writeReport(file, results, summary, calls) {
             r: r.reasons.join(' | '),
             ln: rec?.legalName ?? '', tn: rec?.tradeName ?? '', st: rec ? (rec.found ? rec.status ?? '' : 'NOT FOUND') : '',
             tt: rec?.taxpayerType ?? '', co: rec?.constitution ?? '', rd: rec?.registrationDate ?? '', cd: rec?.cancellationDate ?? '',
-            nb: rec?.natureOfBusiness?.join(', ') ?? '', ad: rec?.address ?? '', r1: r.input.gstr1Filed ?? '',
+            nb: rec?.natureOfBusiness?.join(', ') ?? '', hs: rec?.hsn?.map(h => h.code + (h.description ? ' ' + h.description : '')).join('; ') ?? '', ad: rec?.address ?? '', r1: r.input.gstr1Filed ?? '',
             vf: r.verifiedFacts.join(' | '), ms: r.missing.join(' | '), src: r.source, va: r.verifiedAt ?? ''
         });
         row.getCell('c').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: FILL[r.colour] } };
         row.alignment = { vertical: 'top', wrapText: true };
         ['t', 'x'].forEach(k => row.getCell(k).numFmt = '#,##0.00');
     }
-    w.autoFilter = { from: 'A1', to: 'U1' };
+    w.autoFilter = { from: 'A1', to: 'V1' };
     const a = wb.addWorksheet('API calls (audit)');
     a.columns = [{ header: 'Time (UTC)', key: 'at', width: 24 }, { header: 'GSTIN', key: 'gstin', width: 18 }, { header: 'Endpoint', key: 'endpoint', width: 22 },
         { header: 'HTTP', key: 'httpStatus', width: 7 }, { header: 'Outcome', key: 'outcome', width: 40 }, { header: 'Attempt', key: 'attempt', width: 8 },

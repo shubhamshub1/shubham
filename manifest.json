@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "tally-mcp-server-aetherwise",
   "display_name": "Tally Prime (Aetherwise edition)",
-  "version": "7.13.0",
+  "version": "7.14.0",
   "description": "Tally Prime MCP server - Aetherwise edition: reports, XML file import, voucher list/delete, ledger GSTIN and GST duty-head update, supplier GSTIN verification (gstin-verify)",
   "author": {
     "name": "Aetherwise - Shubham Chaturvedi",
@@ -48,7 +48,7 @@
     "GSTINAPI_API_KEY": {
       "type": "string",
       "title": "gstinapi.in API key (optional)",
-      "description": "Key from gstinapi.in for live GSTIN verification. Stored by Claude Desktop as a secret; leave blank for offline checks only.",
+      "description": "Optional. Only for gstin-verify live mode. Not needed for gstin-portal-open / gstin-search-taxpayer (official GST portal, user-assisted, offline parsing).",
       "sensitive": true,
       "required": false,
       "default": ""
@@ -162,6 +162,14 @@
     {
       "name": "gstin-api-usage",
       "description": "shows remaining gstinapi.in credits and local GSTIN cache size"
+    },
+    {
+      "name": "gstin-portal-open",
+      "description": "opens the official GST portal Search Taxpayer page in your browser (you enter GSTIN + captcha yourself)"
+    },
+    {
+      "name": "gstin-search-taxpayer",
+      "description": "reads the GST portal result page you saved / copied and returns structured taxpayer details incl. HSN / SAC, offline, no API key"
     }
   ],
   "tools_generated": false,

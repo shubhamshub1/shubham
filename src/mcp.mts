@@ -852,6 +852,69 @@ export async function registerMcpServer(): Promise<McpServer> {
   );
 
   mcpServer.registerTool(
+    'gstin-portal-open',
+    {
+      title: 'Open GST Portal Taxpayer Search',
+      description: `opens the OFFICIAL GST portal "Search Taxpayer" page (${'https://services.gst.gov.in/services/searchtp'}) in the user's default browser. the user types the GSTIN and the captcha THEMSELVES, then saves the result page (Ctrl+S, "Webpage, Single File" .mhtml) or copies all text into a .txt. the connector sends nothing to the portal. next step: gstin-search-taxpayer`,
+      inputSchema: {},
+      annotations: { readOnlyHint: true, openWorldHint: true }
+    },
+    async () => {
+      try {
+        const { PORTAL_URL } = await import('./portal.mjs');
+        const { spawn } = await import('node:child_process');
+        const [cmd, args] = process.platform === 'win32' ? ['cmd', ['/c', 'start', '', PORTAL_URL]]
+          : process.platform === 'darwin' ? ['open', [PORTAL_URL]] : ['xdg-open', [PORTAL_URL]];
+        spawn(cmd as string, args as string[], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+        return { content: [{ type: 'text', text: JSON.stringify({ opened: PORTAL_URL, steps: ['enter the GSTIN and press Enter', 'type the captcha yourself and click SEARCH', 'on the result page press Ctrl+S, choose "Webpage, Single File (*.mhtml)", save to a folder (e.g. Downloads\\GSTIN_<client>) with the GSTIN as file name', 'open the "Goods and Services" part before saving if the page shows it collapsed', 'repeat for each supplier, then ask Claude to run gstin-search-taxpayer on that folder'] }) }] };
+      } catch (err) { return { isError: true, content: [{ type: 'text', text: 'could not open the browser: ' + String((err as any)?.message || err) }] }; }
+    }
+  );
+
+  mcpServer.registerTool(
+    'gstin-search-taxpayer',
+    {
+      title: 'Read GST Portal Taxpayer Result',
+      description: `reads GST portal "Search Taxpayer" result pages that the USER saved or copied from the official portal (.mhtml / .html / .txt, or pasted text) and returns structured taxpayer details: legal / trade name, status, registration / cancellation date, constitution, taxpayer type, principal & additional places of business, centre / state jurisdiction, nature of core business and business activities, Aadhaar / e-KYC, and declared HSN / SAC goods and services, with field_availability for every field. fully offline: no request is sent to the portal or any other service, no API key needed. saveToCache=true stores the parsed record (with the page date) so gstin-verify can use it`,
+      inputSchema: {
+        gstin: z.string().optional().describe('expected GSTIN (checked against the page)'),
+        filePath: z.string().optional().describe('absolute path of one saved page (.mhtml / .html / .txt)'),
+        folderPath: z.string().optional().describe('absolute path of a folder with several saved pages; every .mhtml / .html / .txt is read'),
+        text: z.string().max(400000).optional().describe('text copied from the result page (Ctrl+A, Ctrl+C)'),
+        saveToCache: z.boolean().optional().default(false).describe('store parsed records in the local GSTIN cache for gstin-verify')
+      },
+      annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false, idempotentHint: true }
+    },
+    async (args) => {
+      try {
+        const p = await import('./portal.mjs');
+        const g = await import('./gstin.mjs');
+        const results: any[] = [];
+        const files = [...(args.filePath ? [args.filePath] : []), ...(args.folderPath ? p.listPortalFiles(args.folderPath) : [])];
+        for (const f of files) {
+          try {
+            const { text, retrievedAt } = p.readPortalFile(f);
+            results.push(p.parsePortalText(text, { expectedGstin: files.length === 1 ? args.gstin : undefined, sourceFile: path.basename(f), retrievedAt }));
+          } catch (e) { results.push({ success: false, gstin: null, source_file: path.basename(f), page_state: 'UNRECOGNISED', error: 'could not read file: ' + String((e as any)?.message || e) }); }
+        }
+        if (args.text) results.push(p.parsePortalText(args.text, { expectedGstin: args.gstin, sourceFile: null, retrievedAt: null }));
+        if (!results.length) return { isError: true, content: [{ type: 'text', text: 'give filePath, folderPath or text (run gstin-portal-open first to open the official search page)' }] };
+        const savedSet = new Set<string>();
+        if (args.saveToCache) {
+          const cache = new g.GstinCache(path.join(g.dataDir(), 'gstin-cache.json'));
+          for (const r of results) {
+            const rec = p.toProviderRecord(r);
+            if (rec && rec.found) { cache.put({ record: rec, source: p.PORTAL_SOURCE, verifiedAt: r.retrieved_at || r.parsed_at }); savedSet.add(rec.gstin); }
+          }
+          cache.save();
+        }
+        const summary = { pages: results.length, parsed_ok: results.filter(r => r.success).length, not_found: results.filter(r => r.page_state === 'NOT_FOUND').length, failed: results.filter(r => !r.success && r.page_state !== 'NOT_FOUND').length, saved_to_cache: savedSet.size };
+        return { content: [{ type: 'text', text: JSON.stringify({ summary, results }) }] };
+      } catch (err) { return { isError: true, content: [{ type: 'text', text: String((err as any)?.message || err) }] }; }
+    }
+  );
+
+  mcpServer.registerTool(
     'gstin-api-usage',
     {
       title: 'GSTIN API Usage',
@@ -864,7 +927,7 @@ export async function registerMcpServer(): Promise<McpServer> {
         const g = await import('./gstin.mjs');
         const cache = new g.GstinCache(path.join(g.dataDir(), 'gstin-cache.json'));
         const key = process.env.GSTINAPI_API_KEY || '';
-        const usage = key ? await new g.GstinApiProvider(key).usage() : 'GSTINAPI_API_KEY not configured';
+        const usage = key ? await new g.GstinApiProvider(key).usage() : 'gstinapi.in key not configured (optional - only gstin-verify live mode uses it; gstin-portal-open + gstin-search-taxpayer need no key)';
         return { content: [{ type: 'text', text: JSON.stringify({ usage, cachedGstins: cache.size, dataFolder: g.dataDir() }) }] };
       } catch (err) { return { isError: true, content: [{ type: 'text', text: String(err) }] }; }
     }

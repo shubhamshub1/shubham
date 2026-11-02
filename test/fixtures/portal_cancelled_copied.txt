@@ -1,0 +1,19 @@
+Search Result based on GSTIN/UIN : 33AAACC1206D1ZN
+Legal Name of Business	SAMPLE INFRA BUILDCON PRIVATE LIMITED
+Trade Name	SAMPLE BUILDCON
+Effective Date of registration	15/03/2019
+Constitution of Business	Private Limited Company
+GSTIN / UIN Status	Cancelled suo-moto
+Taxpayer Type	Regular
+Effective Date of Cancellation	31/05/2026
+Principal Place of Business	Plot 9, Sample Nagar,
+Chennai, Tamil Nadu, 600001
+Nature Of Core Business Activity	Service Provider and Others
+Nature of Business Activities	Works Contract, Supplier of Services
+Dealing In Goods and Services
+Goods
+HSN	Description
+2523	PORTLAND CEMENT
+6907	CERAMIC TILES
+Services
+995411	Construction services of single dwelling

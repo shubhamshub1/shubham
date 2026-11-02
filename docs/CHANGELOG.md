@@ -1,5 +1,10 @@
 # Change log
 
+## v7.14.0 (Aetherwise edition), 02-Nov-2026
+* New tools gstin-portal-open and gstin-search-taxpayer: user-assisted lookup on the official GST portal (user enters GSTIN + captcha in own browser, saves / copies the result page); the connector parses it offline into structured fields incl. jurisdiction, nature of business and declared HSN / SAC, with field_availability per field. No API key, no request to any service
+* gstin-verify: uses declared HSN / SAC (pharmacy HSN = trade, construction / facility / repair SAC = review) and shows them in the report
+* gstin-api-usage: message clarifies the gstinapi.in key is optional
+
 ## v7.13.0 (Aetherwise edition), 01-Nov-2026
 * New tool gstin-verify: GSTIN format + check digit, GSTR-1 filing status from the client's own 2A/2B, live registration data through the authorised gstinapi.in API (optional key), local cache, credit budget, throttle + retry, JSONL audit log and a GREEN / YELLOW / RED Excel report
 * New tool gstin-api-usage
