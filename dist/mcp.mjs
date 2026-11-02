@@ -802,6 +802,87 @@ export async function registerMcpServer() {
             return { isError: true, content: [{ type: 'text', text: String(err?.message || err) }] };
         }
     });
+    mcpServer.registerTool('gstin-verify-bulk', {
+        title: 'Verify GSTINs on GST Portal (bulk, interactive)',
+        description: `checks a list of GSTINs on the OFFICIAL GST portal in ONE request: opens one visible Edge / Chrome window on the user's PC, fills each GSTIN, and the USER types each captcha and clicks SEARCH (the connector never reads or solves captchas). each result is read and parsed automatically (legal / trade name, status, dates, constitution, type, address, jurisdiction, nature of business, HSN / SAC), compared with the supplier names in Tally ledgers (by GSTIN) and / or a supplier file, classified GREEN / YELLOW / RED (technical failures stay YELLOW, never RED) and written to one Excel report. runs in the background: returns at once with a job id - tell the user to switch to the browser window and type the captchas, then call gstin-verify-bulk-status. no API key, no paid service`,
+        inputSchema: {
+            gstins: z.array(z.string()).min(1).max(50).describe('GSTINs to check (duplicates removed, invalid ones not sent to the portal)'),
+            clientName: z.string(),
+            clientProfile: z.enum(['pharmacy', 'trader', 'generic']).optional().default('generic'),
+            supplierFile: z.string().optional().describe('optional .xlsx / .csv (e.g. 2A summary) with GSTIN + supplier name / GST / GSTR-1 status for comparison'),
+            compareWithTally: z.boolean().optional().default(true).describe('read party ledger names by GSTIN from the open Tally company (read-only)'),
+            targetCompany: z.string().optional(),
+            outputPath: z.string().optional().describe('report .xlsx path; default Aetherwise data folder'),
+            perGstinTimeoutSec: z.number().int().min(30).max(900).optional().default(180).describe('time to type the captcha for one GSTIN'),
+            saveToCache: z.boolean().optional().default(false).describe('also keep the parsed records in the local cache for gstin-verify')
+        },
+        annotations: { readOnlyHint: false, openWorldHint: true, destructiveHint: false, idempotentHint: false }
+    }, async (args) => {
+        try {
+            const g = await import('./gstin.mjs');
+            const bj = await import('./bulkjob.mjs');
+            const pb = await import('./portalbrowser.mjs');
+            const books = new Map();
+            const src = [];
+            if (args.supplierFile) {
+                for (const r of g.dedupeSuppliers(await g.readSupplierFile(args.supplierFile)).unique)
+                    books.set(r.gstin, { name: r.name, gst: r.gst, bills: r.bills, gstr1Filed: r.gstr1Filed, fixedMonthly: r.fixedMonthly, firstDate: r.firstDate, lastDate: r.lastDate });
+                src.push('supplier file ' + path.basename(args.supplierFile));
+            }
+            if (args.compareWithTally !== false) {
+                try {
+                    const led = await queryCollection('Ledger', ['Name', 'GSTN'], new Map(), args.targetCompany);
+                    let n = 0;
+                    for (const l of led) {
+                        const gst = String(l.GSTN || l.gstn || '').trim().toUpperCase();
+                        if (!gst || !args.gstins.map(x => x.trim().toUpperCase()).includes(gst))
+                            continue;
+                        const e = books.get(gst) || {};
+                        if (!e.name)
+                            e.name = l.Name ?? l.name;
+                        books.set(gst, e);
+                        n++;
+                    }
+                    src.push(`Tally ledgers (${n} matched by GSTIN)`);
+                }
+                catch {
+                    src.push('Tally not reachable - books comparison from Tally not possible');
+                }
+            }
+            const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+            const out = args.outputPath || path.join(g.dataDir(), `GSTIN_Portal_${args.clientName.replace(/[^A-Za-z0-9]+/g, '_')}_${stamp}.xlsx`);
+            const job = bj.startBulk({
+                gstins: args.gstins, clientName: args.clientName, profile: g.CLIENT_PROFILES[args.clientProfile || 'generic'], books,
+                booksSource: src.join('; ') || 'no books source given', outputPath: out, saveToCache: !!args.saveToCache,
+                perGstinTimeoutMs: (args.perGstinTimeoutSec ?? 180) * 1000, minGapMs: 3000, launch: pb.launchVisibleBrowser,
+                portalUrl: process.env.AETHERWISE_PORTAL_URL_TEST
+            });
+            return { content: [{ type: 'text', text: JSON.stringify({ started: bj.publicView(job, false), user_action: 'A browser window is opening on the GST portal. For each supplier the GSTIN is already filled: type the captcha shown and click SEARCH. The next supplier opens automatically. Do not close the window until it finishes.', next: 'call gstin-verify-bulk-status (waitSeconds up to 50) until state is done' }) }] };
+        }
+        catch (err) {
+            return { isError: true, content: [{ type: 'text', text: String(err?.message || err).split('\n')[0] }] };
+        }
+    });
+    mcpServer.registerTool('gstin-verify-bulk-status', {
+        title: 'Bulk GSTIN Verification Status',
+        description: 'progress / result of the running or last gstin-verify-bulk job. waitSeconds blocks until the job finishes or the wait ends. when done returns one row per supplier and the Excel report path. cancel=true stops after the current supplier',
+        inputSchema: {
+            waitSeconds: z.number().int().min(0).max(50).optional().default(0),
+            cancel: z.boolean().optional().default(false)
+        },
+        annotations: { readOnlyHint: true, openWorldHint: false }
+    }, async (args) => {
+        const bj = await import('./bulkjob.mjs');
+        const j = bj.getJob();
+        if (!j)
+            return { content: [{ type: 'text', text: JSON.stringify({ state: 'none', message: 'no bulk job started in this session' }) }] };
+        if (args.cancel)
+            j.cancel = true;
+        const until = Date.now() + (args.waitSeconds ?? 0) * 1000;
+        while (j.state === 'running' && Date.now() < until)
+            await new Promise(r => setTimeout(r, 1000));
+        return { content: [{ type: 'text', text: JSON.stringify(bj.publicView(j, j.state !== 'running')) }] };
+    });
     mcpServer.registerTool('gstin-api-usage', {
         title: 'GSTIN API Usage',
         description: 'returns usage / remaining credits of the configured gstinapi.in key (free call) and the size of the local GSTIN cache',

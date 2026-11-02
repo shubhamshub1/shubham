@@ -1,5 +1,13 @@
 # Change log
 
+## v7.15.0 (Aetherwise edition), 02-Nov-2026
+* New tools gstin-verify-bulk and gstin-verify-bulk-status: one request checks up to 50 GSTINs on the official GST portal. The connector opens one visible Edge / Chrome window, fills each GSTIN, waits while the user types the captcha, reads and parses the result, pauses 3 s and moves on. Runs in the background; one consolidated Excel report
+* Books comparison: party ledger names by GSTIN from Tally (read-only) and / or a supplier file; name mismatch = YELLOW
+* Technical failures (timeout, portal down, page changed, window closed) are YELLOW with the reason, never RED
+* Report: new Jurisdiction column
+* Dependency: playwright-core (drives the browser already installed on the PC; no browser download)
+* Tests: mock portal + simulated user for bulk flow, wrong captcha, timeout, portal down, cancel, page change, MCP end to end (41 tests)
+
 ## v7.14.1 (Aetherwise edition), 02-Nov-2026
 * gstin-search-taxpayer tested on a real portal result page: reads only the result block (site menu "e-Invoice" no longer mistaken for a field), Goods / Services classified by code (SAC 99xxxx and old service-tax codes 0044xxxx = services)
 * gstin-verify: service descriptions (maintenance / repair, renting of immovable property, works contract, manpower, security...) flagged for 17(5) review

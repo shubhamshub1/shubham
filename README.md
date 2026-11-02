@@ -12,7 +12,7 @@ See [NOTICE-AETHERWISE.md](NOTICE-AETHERWISE.md) for:
 - XML file import
 - voucher list and voucher delete
 - ledger GSTIN and GST duty-head update fixes
-- supplier GSTIN verification (`gstin-verify`, `gstin-portal-open`, `gstin-search-taxpayer`), see [docs/gstin-verify.md](docs/gstin-verify.md)
+- supplier GSTIN verification (`gstin-verify-bulk`, `gstin-verify`, `gstin-portal-open`, `gstin-search-taxpayer`), see [docs/gstin-verify.md](docs/gstin-verify.md)
 
 Version history is in [docs/CHANGELOG.md](docs/CHANGELOG.md).
 

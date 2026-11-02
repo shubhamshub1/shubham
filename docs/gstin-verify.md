@@ -63,3 +63,22 @@ Privacy: no network request is made by these tools; nothing is stored unless `sa
 Review of sunilhm68/GST_Status_Checker: it automates the portal with Playwright and solves the captcha with a CNN, which GSTN's website
 policy prohibits (scraping / access only through authorised interfaces), so its access mechanism is not used. It also overwrites the
 input Excel keeping only Sheet1, saves full-page screenshots of results, pins no dependency versions and sends nothing except to the portal.
+
+## Bulk check on the official portal in one request (v7.15) - recommended
+Ask Claude, for example: "in 11 GSTIN ko portal par verify karo" → tool `gstin-verify-bulk`:
+```json
+{ "gstins": ["06AACCK7823J1ZE", "06AAPFN6862J1ZN"], "clientName": "Jetaa Enterprises", "clientProfile": "pharmacy", "compareWithTally": true }
+```
+1. GSTINs are de-duplicated and checked locally; invalid ones are never sent.
+2. One visible Microsoft Edge (or Chrome) window opens on https://services.gst.gov.in/services/searchtp. A green bar says which supplier is next.
+3. For each GSTIN the connector types the GSTIN; **you type the captcha and click SEARCH**. Wrong captcha: just type again.
+4. The result is read from the page, parsed, and the next GSTIN opens after 3 seconds. One search at a time.
+5. When done: one Excel report (Aetherwise data folder) + one row per supplier via `gstin-verify-bulk-status`.
+
+Why the captcha stays with you: the portal shows a captcha for each search and GSTN's website policy allows access only through
+interfaces it authorises and prohibits scraping. The connector therefore never reads, sends or solves the captcha, never runs hidden
+(headless) and never runs searches in parallel. Whether one captcha covers several searches in a session has not been verified;
+if the portal does not ask again, the connector simply continues.
+
+Options: `supplierFile` (2A summary for amounts / GSTR-1 status), `perGstinTimeoutSec` (default 180), `saveToCache` (default false),
+`AETHERWISE_BROWSER_PATH` env to use a specific browser. Nothing is stored except the report and the audit line per lookup.

@@ -343,6 +343,8 @@ export function toProviderRecord(r: TaxpayerResult): ProviderRecord | null {
     taxpayerType: t.taxpayer_type, constitution: t.constitution_of_business, registrationDate: t.registration_date,
     cancellationDate: t.cancellation_date, address: t.principal_place_of_business.address,
     natureOfBusiness: t.nature_of_business.length ? t.nature_of_business : null, einvoiceStatus: t.einvoice_status,
-    profileComplete: true, hsn: [...t.hsn_details, ...t.sac_details]
+    profileComplete: true, hsn: [...t.hsn_details, ...t.sac_details],
+    jurisdiction: [t.jurisdiction.state && 'State: ' + t.jurisdiction.state, t.jurisdiction.centre && 'Centre: ' + t.jurisdiction.centre].filter(Boolean).join(' | ') || null,
+    additionalPlaces: t.additional_places_of_business, coreActivity: t.nature_of_core_business_activity
   };
 }

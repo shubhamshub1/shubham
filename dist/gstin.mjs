@@ -222,6 +222,19 @@ export function normDate(v) {
     return undefined;
 }
 function round2(n) { return Math.round(n * 100) / 100; }
+const NAME_STOP = new Set(['m', 's', 'ms', 'the', 'and', 'of', 'pvt', 'private', 'ltd', 'limited', 'llp', 'co', 'company', 'firm', 'enterprises', 'enterprise',
+    'india', 'traders', 'trading', 'agency', 'agencies', 'and', 'sons', 'son', 'brothers', 'bros', 'corporation', 'corp', 'industries', 'services', 'limit', 'privat', 'lim']);
+function nameTokens(s) { return s.toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, ' ').split(' ').filter(w => w.length > 1 && !NAME_STOP.has(w)); }
+/** true when the books name and the registered legal / trade name share a significant word */
+export function namesMatch(books, ...registered) {
+    const b = new Set(nameTokens(books));
+    if (!b.size)
+        return true;
+    const r = registered.filter(Boolean).flatMap(x => nameTokens(x));
+    if (!r.length)
+        return true;
+    return r.some(w => b.has(w) || [...b].some(x => (x.length >= 4 && w.startsWith(x)) || (w.length >= 4 && x.startsWith(w))));
+}
 export class ProviderStop extends Error {
 }
 export class GstinApiProvider {
@@ -499,6 +512,14 @@ export function classify(input, local, record, profile, lookupError) {
         missing.push(lookupError ? `live registration data not available: ${lookupError}` : 'live registration data not fetched (no API key / API disabled)');
     }
     // patterns from the client's own data
+    if (record?.found && input.name && (record.legalName || record.tradeName)) {
+        if (namesMatch(input.name, record.legalName, record.tradeName))
+            facts.push(`books name "${input.name}" matches registered name`);
+        else
+            yellow.push(`books name "${input.name}" does not match registered name "${record.legalName}${record.tradeName && record.tradeName !== record.legalName ? ' / ' + record.tradeName : ''}" - check that the GSTIN in books is the right party`);
+    }
+    else if (record?.found && !input.name)
+        missing.push('books-to-portal name comparison not possible (no supplier name in books / input)');
     const nameText = [input.name, record?.legalName, record?.tradeName].filter(Boolean).join(' ');
     const ok = profile.okKeywords.filter(k => hasWord(nameText, k));
     const rv = profile.reviewKeywords.filter(k => hasWord(nameText, k));
@@ -642,7 +663,7 @@ export async function writeReport(file, results, summary, calls) {
         { header: 'Legal name (verified)', key: 'ln', width: 30 }, { header: 'Trade name (verified)', key: 'tn', width: 30 },
         { header: 'Status (verified)', key: 'st', width: 12 }, { header: 'Taxpayer type', key: 'tt', width: 13 },
         { header: 'Constitution', key: 'co', width: 18 }, { header: 'Reg. date', key: 'rd', width: 11 }, { header: 'Cancel date', key: 'cd', width: 11 },
-        { header: 'Nature of business (verified)', key: 'nb', width: 40 }, { header: 'Declared HSN / SAC (verified)', key: 'hs', width: 40 }, { header: 'Address (verified)', key: 'ad', width: 40 },
+        { header: 'Nature of business (verified)', key: 'nb', width: 40 }, { header: 'Declared HSN / SAC (verified)', key: 'hs', width: 40 }, { header: 'Address (verified)', key: 'ad', width: 40 }, { header: 'Jurisdiction (verified)', key: 'ju', width: 40 },
         { header: 'GSTR-1 filed (2A/2B)', key: 'r1', width: 10 },
         { header: 'Verified facts', key: 'vf', width: 60 }, { header: 'Missing / inconclusive', key: 'ms', width: 50 },
         { header: 'Source', key: 'src', width: 28 }, { header: 'Verified at (UTC)', key: 'va', width: 22 }
@@ -656,14 +677,14 @@ export async function writeReport(file, results, summary, calls) {
             r: r.reasons.join(' | '),
             ln: rec?.legalName ?? '', tn: rec?.tradeName ?? '', st: rec ? (rec.found ? rec.status ?? '' : 'NOT FOUND') : '',
             tt: rec?.taxpayerType ?? '', co: rec?.constitution ?? '', rd: rec?.registrationDate ?? '', cd: rec?.cancellationDate ?? '',
-            nb: rec?.natureOfBusiness?.join(', ') ?? '', hs: rec?.hsn?.map(h => h.code + (h.description ? ' ' + h.description : '')).join('; ') ?? '', ad: rec?.address ?? '', r1: r.input.gstr1Filed ?? '',
+            nb: rec?.natureOfBusiness?.join(', ') ?? '', ju: rec?.jurisdiction ?? '', hs: rec?.hsn?.map(h => h.code + (h.description ? ' ' + h.description : '')).join('; ') ?? '', ad: rec?.address ?? '', r1: r.input.gstr1Filed ?? '',
             vf: r.verifiedFacts.join(' | '), ms: r.missing.join(' | '), src: r.source, va: r.verifiedAt ?? ''
         });
         row.getCell('c').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: FILL[r.colour] } };
         row.alignment = { vertical: 'top', wrapText: true };
         ['t', 'x'].forEach(k => row.getCell(k).numFmt = '#,##0.00');
     }
-    w.autoFilter = { from: 'A1', to: 'V1' };
+    w.autoFilter = { from: 'A1', to: 'W1' };
     const a = wb.addWorksheet('API calls (audit)');
     a.columns = [{ header: 'Time (UTC)', key: 'at', width: 24 }, { header: 'GSTIN', key: 'gstin', width: 18 }, { header: 'Endpoint', key: 'endpoint', width: 22 },
         { header: 'HTTP', key: 'httpStatus', width: 7 }, { header: 'Outcome', key: 'outcome', width: 40 }, { header: 'Attempt', key: 'attempt', width: 8 },
