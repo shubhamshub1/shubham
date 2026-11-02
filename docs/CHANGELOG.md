@@ -2,6 +2,7 @@
 
 ## v7.16.0 (Aetherwise edition), 02-Nov-2026 - compliance release
 * REMOVED the v7.15.0 browser automation of the GST portal (visible-browser bulk search, page overlay, gstin-verify-bulk-status) and the playwright-core dependency. GSTN's website policy allows access only through interfaces expressly authorised by GSTN and prohibits scraping and contravening access controls; a connector driving the public search page is not such an interface, even with the captcha typed by the user. v7.15.0 must not be installed
+* Classification review: composition taxpayer is information (YELLOW only when tax appears on its bills), never RED; new Finding category column (INVALID_GSTIN / NOT_FOUND_AT_SOURCE / CANCELLED / SUSPENDED / GSTR1_NOT_FILED / TECHNICAL / REVIEW / OK); technical items never described as a supplier problem; GSTR-1 non-filing only from explicit Y/N / Filed / Not Filed values in the client's own 2A/2B (optional period column), never inferred from the taxpayer profile; fields not shown on the portal page / not public listed in "Missing / inconclusive"
 * gstin-verify-bulk now builds one consolidated report from result pages the user searched and saved (any file names, matched by the GSTIN on the page, or by file name for "no records" pages), lists missing pages, compares with Tally ledger names (Export request only) and keeps technical items (PAGE_MISSING / PARSE_FAILED) separate from verified findings (new Lookup column; technical = YELLOW, never RED)
 
 ## v7.15.0 (Aetherwise edition), 02-Nov-2026

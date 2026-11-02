@@ -158,6 +158,7 @@ export async function readSupplierFile(filePath, sheetName) {
     const cF = findCol(headers, /first.*date|from.*date/);
     const cL = findCol(headers, /last.*date|to.*date|^invoice date|^date/);
     const cR = findCol(headers, /gstr-?1.*fil.*status|filing status/);
+    const cP = findCol(headers, /gstr-?1.*period|filing period|return period|tax period/);
     const cM = findCol(headers, /fixed.*month|monthly/);
     const cNote = findCol(headers, /note|remark/);
     const out = [];
@@ -175,6 +176,7 @@ export async function readSupplierFile(filePath, sheetName) {
             firstDate: normDate(pick(cF)),
             lastDate: normDate(pick(cL)),
             gstr1Filed: pick(cR) || undefined,
+            gstr1Period: pick(cP) || undefined,
             fixedMonthly: cM >= 0 ? /^(y|yes|true|1)$/i.test(pick(cM) || '') : undefined,
             note: pick(cNote) || undefined
         });
@@ -443,6 +445,17 @@ export const CLIENT_PROFILES = {
     trader: { name: 'General trader', okKeywords: ['traders', 'trading', 'distributor', 'agencies', 'wholesale'], reviewKeywords: COMMON_REVIEW },
     generic: { name: 'Generic', okKeywords: [], reviewKeywords: COMMON_REVIEW }
 };
+export const CATEGORY_TEXT = {
+    INVALID_GSTIN: 'GSTIN in books / input fails format or check digit (data error, not checked at source)',
+    NOT_FOUND_AT_SOURCE: 'source (portal page / API) reports no record for this GSTIN',
+    CANCELLED: 'registration cancelled as per source',
+    SUSPENDED: 'registration suspended as per source',
+    GSTR1_NOT_FILED: 'client GSTR-2A/2B shows supplier GSTR-1 not filed for the bills in the input',
+    TECHNICAL: 'lookup / page / parse problem - no conclusion about the supplier',
+    REVIEW: 'needs human review (purpose, 17(5), name, pattern, composition, data gaps)',
+    OK: 'no issue found in the checks performed'
+};
+const CAT_ORDER = ['INVALID_GSTIN', 'NOT_FOUND_AT_SOURCE', 'CANCELLED', 'SUSPENDED', 'GSTR1_NOT_FILED', 'TECHNICAL', 'REVIEW', 'OK'];
 function words(s) { return ' ' + s.toLowerCase().replace(/[^a-z0-9]+/g, ' ') + ' '; }
 function hasWord(text, kw) { return words(text).includes(' ' + kw.toLowerCase() + ' '); }
 const SERVICE_NOB = /service|works contract|leasing|office \/ sale office/i;
@@ -451,22 +464,30 @@ export function classify(input, local, record, profile, lookupError) {
     const yellow = [];
     const facts = [];
     const missing = [];
+    const cats = new Set();
     // local
-    if (!local.formatOk || !local.checksumOk)
+    if (!local.formatOk || !local.checksumOk) {
         red.push(...local.problems);
+        cats.add('INVALID_GSTIN');
+    }
     else if (!local.state)
         yellow.push(...local.problems);
     else
         facts.push(`GSTIN format and check digit valid (state ${local.stateCode} ${local.state}; PAN holder type: ${local.panHolderType ?? 'unknown'})`);
     // client's own 2A / 2B data
-    if (input.gstr1Filed !== undefined && input.gstr1Filed !== '') {
-        if (/^n/i.test(input.gstr1Filed))
-            red.push('supplier GSTR-1 not filed for at least one bill as per client 2A/2B (as on its download date - re-check latest 2B) - ITC at risk u/s 16(2)(aa)');
-        else
-            facts.push(`GSTR-1 filing status in client 2A/2B: ${input.gstr1Filed}`);
+    // only explicit values from the client's own GSTR-2A/2B are used; never inferred from the taxpayer profile
+    const per = input.gstr1Period ? ` for ${input.gstr1Period}` : ' for the bills in the input file';
+    const fs1 = (input.gstr1Filed ?? '').trim();
+    if (!fs1)
+        missing.push('GSTR-1 filing status (not in input file - not inferred)');
+    else if (/^(n|no|not filed)$/i.test(fs1)) {
+        red.push(`client GSTR-2A/2B shows supplier GSTR-1 NOT FILED${per} (status as on the 2A/2B download date - re-check the latest 2B) - ITC at risk u/s 16(2)(aa)`);
+        cats.add('GSTR1_NOT_FILED');
     }
+    else if (/^(y|yes|filed)$/i.test(fs1))
+        facts.push(`client GSTR-2A/2B shows supplier GSTR-1 filed${per}`);
     else
-        missing.push('GSTR-1 filing status (not in input file)');
+        missing.push(`GSTR-1 filing status value "${fs1}" not recognised - not used`);
     // provider
     if (record && record.found) {
         const st = record.status || '';
@@ -487,17 +508,28 @@ export function classify(input, local, record, profile, lookupError) {
             missing.push('nature of business (provider returned none)');
         if (/cancel/i.test(st)) {
             const cd = record.cancellationDate;
-            if (cd && input.lastDate && input.lastDate < cd)
+            if (cd && input.lastDate && input.lastDate < cd) {
                 yellow.push(`registration cancelled w.e.f. ${cd}; all bills in the input are dated before that - confirm`);
-            else
-                red.push(`registration CANCELLED${cd ? ' w.e.f. ' + cd : ''} - ITC not available on bills after cancellation`);
+                cats.add('REVIEW');
+            }
+            else {
+                red.push(`registration CANCELLED${cd ? ' w.e.f. ' + cd : ''} as per source - ITC not available on bills after cancellation`);
+                cats.add('CANCELLED');
+            }
         }
-        else if (/suspend/i.test(st))
-            red.push('registration SUSPENDED - confirm before claiming ITC');
+        else if (/suspend/i.test(st)) {
+            red.push('registration SUSPENDED as per source - confirm before claiming ITC');
+            cats.add('SUSPENDED');
+        }
         else if (st && !/^active/i.test(st))
             yellow.push(`registration status "${st}" - confirm`);
-        if (record.taxpayerType && /composition/i.test(record.taxpayerType) && (input.gst ?? 0) > 0)
-            red.push('supplier is a COMPOSITION taxpayer but GST appears on the bills - composition dealers cannot charge GST, ITC not available');
+        // composition is information; it needs review only when tax appears on this supplier's bills
+        if (record.taxpayerType && /composition/i.test(record.taxpayerType)) {
+            if ((input.gst ?? 0) > 0)
+                yellow.push('supplier registered under COMPOSITION; tax appears on its bills in the input - check the bills (a composition dealer issues a bill of supply without tax)');
+            else
+                facts.push('supplier registered under composition (information)');
+        }
         if (record.registrationDate && input.firstDate && input.firstDate < record.registrationDate)
             yellow.push(`first bill (${input.firstDate}) is before registration date (${record.registrationDate})`);
         if (record.natureOfBusiness?.some(n => SERVICE_NOB.test(n)) && !record.natureOfBusiness?.some(n => /retail|wholesale|supplier of goods|distributor/i.test(n)))
@@ -506,10 +538,16 @@ export function classify(input, local, record, profile, lookupError) {
             yellow.push('no returns found for the requested financial year');
     }
     else if (record && !record.found) {
-        red.push('GSTIN not found on the GST network (provider) - confirm the number with the supplier; this alone does not mean the supplier is fake');
+        red.push('source reports NO RECORD for this GSTIN (portal "no records" page / API not found) - confirm the number with the supplier; this alone does not mean the supplier is fake');
+        cats.add('NOT_FOUND_AT_SOURCE');
     }
-    else {
-        missing.push(lookupError ? `live registration data not available: ${lookupError}` : 'live registration data not fetched (no API key / API disabled)');
+    else if (local.formatOk && local.checksumOk) {
+        if (lookupError) {
+            cats.add('TECHNICAL');
+            missing.push(`registration data not available (technical, no conclusion about the supplier): ${lookupError}`);
+        }
+        else
+            missing.push('registration data not fetched (offline checks only)');
     }
     // patterns from the client's own data
     if (record?.found && input.name && (record.legalName || record.tradeName)) {
@@ -546,11 +584,16 @@ export function classify(input, local, record, profile, lookupError) {
     // without a live record GREEN needs: name matches the client's trade AND GSTR-1 filed as per 2A/2B
     const offlineOk = !record && ok.length > 0 && !!input.gstr1Filed && /^y/i.test(input.gstr1Filed);
     const colour = red.length ? 'RED' : (yellow.length || (!record && !offlineOk)) ? 'YELLOW' : 'GREEN';
+    if (yellow.length || (colour === 'YELLOW' && !cats.has('TECHNICAL')))
+        cats.add('REVIEW');
+    if (!cats.size)
+        cats.add('OK');
+    const findings = CAT_ORDER.filter(c => cats.has(c));
     const reasons = red.length ? red.concat(yellow) : yellow.length ? yellow
         : colour === 'YELLOW' ? ['registration not verified live and the name alone does not show the nature of business - verify before relying on ITC']
             : record ? ['no issue found in the checks performed']
                 : ['offline checks passed (format, check digit, GSTR-1 filed, name matches trade); live registration NOT checked'];
-    return { input, local, record, colour, reasons, verifiedFacts: facts, missing };
+    return { input, local, record, colour, reasons, verifiedFacts: facts, missing, category: findings[0], findings };
 }
 export async function runVerification(inputRows, o) {
     const { unique, duplicatesRemoved } = dedupeSuppliers(inputRows);
@@ -652,13 +695,17 @@ export async function writeReport(file, results, summary, calls) {
     s.addRow([]);
     s.addRow(['Legend']).font = bold;
     s.addRow(['GREEN', 'All checks performed passed. Still keep the bill on record.']);
-    s.addRow(['YELLOW', 'Needs confirmation (use, 17(5), pattern, or data not available). Not an adverse finding.']);
-    s.addRow(['RED', 'A verified problem: invalid number, cancelled / suspended, composition charging GST, GSTR-1 not filed, or not found. Confirm with supplier before claiming ITC.']);
+    s.addRow(['YELLOW', 'Needs review (purpose / 17(5), name, pattern, composition with tax on bills) or data not available / technical. Not an adverse finding.']);
+    s.addRow(['RED', 'A verified finding: invalid GSTIN in books, no record at source, cancelled / suspended, or GSTR-1 not filed as per client 2A/2B. Confirm with supplier before claiming ITC. Technical failures are never RED.']);
     s.addRow(['Note', 'A missing or unavailable record is never treated as proof that a supplier is fake.']);
+    s.addRow([]);
+    s.addRow(['Finding category']).font = bold;
+    for (const [k, v] of Object.entries(CATEGORY_TEXT))
+        s.addRow([k, v]);
     s.addRow(['Lookup column', 'RESULT / NOT_FOUND = data read from the source. PAGE_MISSING / PARSE_FAILED / NO LIVE DATA = technical, not a compliance finding (always YELLOW).']);
     const w = wb.addWorksheet('Suppliers', { views: [{ state: 'frozen', ySplit: 1 }] });
     w.columns = [
-        { header: 'Result', key: 'c', width: 9 }, { header: 'Lookup', key: 'lk', width: 16 }, { header: 'GSTIN', key: 'g', width: 18 }, { header: 'Supplier (input)', key: 'n', width: 32 },
+        { header: 'Result', key: 'c', width: 9 }, { header: 'Finding category', key: 'fc', width: 20 }, { header: 'Lookup', key: 'lk', width: 16 }, { header: 'GSTIN', key: 'g', width: 18 }, { header: 'Supplier (input)', key: 'n', width: 32 },
         { header: 'Bills', key: 'b', width: 7 }, { header: 'Taxable', key: 't', width: 12 }, { header: 'GST', key: 'x', width: 11 },
         { header: 'Reasons for result', key: 'r', width: 70 },
         { header: 'Legal name (verified)', key: 'ln', width: 30 }, { header: 'Trade name (verified)', key: 'tn', width: 30 },
@@ -674,7 +721,7 @@ export async function writeReport(file, results, summary, calls) {
     for (const r of [...results].sort((a, b) => order[a.colour] - order[b.colour] || (b.input.gst ?? 0) - (a.input.gst ?? 0))) {
         const rec = r.record;
         const row = w.addRow({
-            c: r.colour, lk: r.lookup ?? (r.record ? 'RESULT' : r.local.checksumOk ? 'NO LIVE DATA' : 'INVALID GSTIN'), g: r.local.gstin, n: r.input.name ?? '', b: r.input.bills ?? '', t: r.input.taxable ?? '', x: r.input.gst ?? '',
+            c: r.colour, fc: r.findings.join(', '), lk: r.lookup ?? (r.record ? 'RESULT' : r.local.checksumOk ? 'NO LIVE DATA' : 'INVALID GSTIN'), g: r.local.gstin, n: r.input.name ?? '', b: r.input.bills ?? '', t: r.input.taxable ?? '', x: r.input.gst ?? '',
             r: r.reasons.join(' | '),
             ln: rec?.legalName ?? '', tn: rec?.tradeName ?? '', st: rec ? (rec.found ? rec.status ?? '' : 'NOT FOUND') : '',
             tt: rec?.taxpayerType ?? '', co: rec?.constitution ?? '', rd: rec?.registrationDate ?? '', cd: rec?.cancellationDate ?? '',
@@ -685,7 +732,7 @@ export async function writeReport(file, results, summary, calls) {
         row.alignment = { vertical: 'top', wrapText: true };
         ['t', 'x'].forEach(k => row.getCell(k).numFmt = '#,##0.00');
     }
-    w.autoFilter = { from: 'A1', to: 'X1' };
+    w.autoFilter = { from: 'A1', to: 'Y1' };
     const a = wb.addWorksheet('API calls (audit)');
     a.columns = [{ header: 'Time (UTC)', key: 'at', width: 24 }, { header: 'GSTIN', key: 'gstin', width: 18 }, { header: 'Endpoint', key: 'endpoint', width: 22 },
         { header: 'HTTP', key: 'httpStatus', width: 7 }, { header: 'Outcome', key: 'outcome', width: 40 }, { header: 'Attempt', key: 'attempt', width: 8 },

@@ -145,9 +145,33 @@ test('classify: cancelled = RED; cancelled after last bill = YELLOW', () => {
   assert.equal(g.classify({ gstin: VALID[0] }, L0, rec({ status: 'Cancelled', cancellationDate: '2026-05-01' }), P).colour, 'RED');
   assert.equal(g.classify({ gstin: VALID[0], lastDate: '2026-04-10' }, L0, rec({ status: 'Cancelled', cancellationDate: '2026-05-01' }), P).colour, 'YELLOW');
 });
-test('classify: composition charging GST = RED', () => {
+test('classify: composition is never RED - YELLOW only when tax appears on its bills, otherwise information', () => {
   const c = g.classify({ gstin: VALID[0], gst: 50 }, L0, rec({ taxpayerType: 'Composition' }), P);
-  assert.equal(c.colour, 'RED'); assert.match(c.reasons.join(), /COMPOSITION/);
+  assert.equal(c.colour, 'YELLOW'); assert.match(c.reasons.join(), /COMPOSITION/); assert.equal(c.category, 'REVIEW');
+  const d = g.classify({ gstin: VALID[0], name: 'X Pharma', gst: 0, gstr1Filed: 'Y' }, L0, rec({ taxpayerType: 'Composition' }), P);
+  assert.equal(d.colour, 'GREEN'); assert.ok(d.verifiedFacts.some(f => /composition \(information\)/.test(f)));
+});
+
+test('classify: categories keep invalid / not found / cancelled / technical apart', () => {
+  const bad = g.validateGstinLocal('27AAPFU0939F1ZW');
+  const a = g.classify({ gstin: bad.gstin }, bad, null, P);
+  assert.equal(a.category, 'INVALID_GSTIN'); assert.equal(a.colour, 'RED');
+  assert.equal(g.classify({ gstin: VALID[0] }, L0, { gstin: VALID[0], found: false }, P).category, 'NOT_FOUND_AT_SOURCE');
+  assert.equal(g.classify({ gstin: VALID[0] }, L0, rec({ status: 'Cancelled', cancellationDate: '2026-01-01' }), P).category, 'CANCELLED');
+  const t = g.classify({ gstin: VALID[0], name: 'Om Medical Agencies', gstr1Filed: 'Y' }, L0, null, P, 'TIMEOUT');
+  assert.equal(t.category, 'TECHNICAL'); assert.notEqual(t.colour, 'RED');
+  assert.ok(t.missing.some(m => /no conclusion about the supplier/.test(m)));
+  assert.ok(!t.reasons.join().match(/fake|non-compliant|cancel/i));
+  assert.equal(g.classify({ gstin: VALID[0], name: 'ABC Pharma', gstr1Filed: 'Y' }, L0, rec(), P).category, 'OK');
+});
+
+test('classify: GSTR-1 status used only from explicit 2A/2B values, with period; never inferred', () => {
+  const a = g.classify({ gstin: VALID[0], gstr1Filed: 'Not Filed', gstr1Period: 'Apr-2026' }, L0, rec(), P);
+  assert.equal(a.category, 'GSTR1_NOT_FILED'); assert.match(a.reasons.join(), /for Apr-2026/);
+  const b = g.classify({ gstin: VALID[0], gstr1Filed: 'NA' }, L0, rec(), P);
+  assert.ok(!b.findings.includes('GSTR1_NOT_FILED')); assert.ok(b.missing.some(m => /not recognised/.test(m)));
+  const c = g.classify({ gstin: VALID[0] }, L0, rec({ returns: null }), P);
+  assert.ok(!c.findings.includes('GSTR1_NOT_FILED')); assert.ok(c.missing.some(m => /not inferred/.test(m)));
 });
 test('classify: GSTR-1 not filed in 2A = RED', () => {
   assert.equal(g.classify({ gstin: VALID[0], gstr1Filed: 'N' }, L0, rec(), P).colour, 'RED');

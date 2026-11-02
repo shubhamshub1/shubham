@@ -31,12 +31,14 @@ test('bulk from saved pages: one row per GSTIN, technical vs verified kept apart
   assert.equal(row(ACTIVE).colour, 'GREEN', row(ACTIVE).reasons.join());
   assert.equal(row(ACTIVE).lookup, 'RESULT');
   assert.ok(row(ACTIVE).verified_at, 'page date used as verification time');
-  assert.equal(row(CANC).colour, 'RED');
+  assert.equal(row(CANC).colour, 'RED'); assert.equal(row(CANC).category, 'CANCELLED');
   assert.equal(row(SVC).colour, 'YELLOW'); assert.ok(row(SVC).reasons.some(x => /does not match registered name/.test(x)));
-  assert.equal(row(NF).lookup, 'NOT_FOUND'); assert.equal(row(NF).colour, 'RED');
-  assert.equal(row(MISSING).lookup, 'PAGE_MISSING'); assert.equal(row(MISSING).colour, 'YELLOW');
+  assert.equal(row(NF).lookup, 'NOT_FOUND'); assert.equal(row(NF).colour, 'RED'); assert.equal(row(NF).category, 'NOT_FOUND_AT_SOURCE');
+  assert.equal(row(MISSING).lookup, 'PAGE_MISSING'); assert.equal(row(MISSING).colour, 'YELLOW'); assert.equal(row(MISSING).category, 'TECHNICAL');
   assert.match(row(MISSING).finding_type, /technical/); assert.match(row(MISSING).reasons[0], /^TECHNICAL \(PAGE_MISSING\)/); assert.equal(row(MISSING).verified_at, null);
-  assert.equal(row(TYPO).lookup, 'NOT_CHECKED (invalid GSTIN)'); assert.equal(row(TYPO).colour, 'RED');
+  assert.equal(row(TYPO).lookup, 'NOT_CHECKED (invalid GSTIN)'); assert.equal(row(TYPO).colour, 'RED'); assert.equal(row(TYPO).category, 'INVALID_GSTIN');
+  assert.ok(row(ACTIVE).missing.some(m => /not shown on the portal page: .*additional_places_of_business/.test(m)));
+  assert.ok(row(ACTIVE).missing.some(m => /not publicly available: contact_details_email_mobile/.test(m)));
   assert.deepEqual(r.missingPages, [MISSING]);
   assert.equal(r.summary.technicalFailures, 1);
   assert.ok(row(CANC).missing.some(x => /comparison not possible/.test(x)));
@@ -44,9 +46,9 @@ test('bulk from saved pages: one row per GSTIN, technical vs verified kept apart
   const ws = wb.getWorksheet('Suppliers');
   assert.equal(ws.rowCount, 7);
   const hdr = ws.getRow(1).values.join('|');
-  for (const h of ['Lookup', 'Legal name', 'Trade name', 'Status', 'Reg. date', 'Address', 'Jurisdiction', 'HSN / SAC', 'Verified at', 'Source', 'Reasons']) assert.ok(hdr.includes(h), h);
-  const missRow = ws.getRows(2, 6).find(x => x.getCell(3).value === MISSING);
-  assert.equal(missRow.getCell(1).value, 'YELLOW'); assert.equal(missRow.getCell(2).value, 'PAGE_MISSING');
+  for (const h of ['Finding category', 'Missing / inconclusive', 'Lookup', 'Legal name', 'Trade name', 'Status', 'Reg. date', 'Address', 'Jurisdiction', 'HSN / SAC', 'Verified at', 'Source', 'Reasons']) assert.ok(hdr.includes(h), h);
+  const missRow = ws.getRows(2, 6).find(x => x.getCell(4).value === MISSING);
+  assert.equal(missRow.getCell(1).value, 'YELLOW'); assert.equal(missRow.getCell(2).value, 'TECHNICAL'); assert.equal(missRow.getCell(3).value, 'PAGE_MISSING');
   assert.ok(!fs.existsSync(path.join(data, 'gstin-cache.json')));
 });
 
@@ -62,12 +64,13 @@ test('Tally access used by the GSTIN tools is an Export (read) request only', ()
   assert.match(xmlQueryCollection, /<TALLYREQUEST>Export<\/TALLYREQUEST>/);
   assert.doesNotMatch(xmlQueryCollection, /Import Data/);
   const src = fs.readFileSync(path.join(here, '..', 'src', 'mcp.mts'), 'utf8');
-  const block = src.slice(src.indexOf("'gstin-verify-bulk'"), src.indexOf("'gstin-api-usage'"));
+  const block = src.slice(src.indexOf("'gstin-portal-open'"), src.indexOf("'gstin-api-usage'"));
   assert.ok(block.includes('queryCollection('));
   for (const w of ['importMastersTransactions', 'importXmlFile', 'deleteMasters', 'deleteVouchers', 'invokeTallyAction']) assert.ok(!block.includes(w), w);
   for (const f of ['gstin.mts', 'portal.mts', 'bulkjob.mts']) {
     const s = fs.readFileSync(path.join(here, '..', 'src', f), 'utf8');
     assert.ok(!/playwright|puppeteer|child_process/.test(s), f + ' has no browser automation');
+    if (f !== 'gstin.mts') assert.ok(!/fetch\(|from 'node:https?'|require\('https?'\)/.test(s), f + ' makes no network request');
   }
 });
 

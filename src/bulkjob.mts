@@ -49,7 +49,14 @@ export async function bulkFromSavedPages(a: BulkArgs) {
       else { lookup = 'PARSE_FAILED'; techErr = `page ${page.source_file}: ${page.error}`; }
     }
     const c = g.classify({ gstin: local.gstin, ...b }, local, rec, a.profile, techErr);
-    if (techErr) c.reasons.unshift(`TECHNICAL (${lookup}): ${techErr}`);
+    if (techErr) c.reasons.unshift(`TECHNICAL (${lookup}): ${techErr} - no conclusion about the supplier`);
+    if (page?.success) {
+      const notGiven = Object.entries(page.field_availability).filter(([, v]) => v === 'not_provided_by_source').map(([k]) => k);
+      const restricted = Object.entries(page.field_availability).filter(([, v]) => v === 'unavailable_access_restricted').map(([k]) => k);
+      if (notGiven.length) c.missing.push(`not shown on the portal page: ${notGiven.join(', ')}`);
+      if (restricted.length) c.missing.push(`not publicly available: ${restricted.join(', ')}`);
+      if (page.warnings.length) c.missing.push(`parse warnings: ${page.warnings.join('; ')}`);
+    }
     if (!b.name) c.missing.push(`books-to-portal comparison not possible (${a.booksSource})`);
     const verifiedAt = rec ? (page?.retrieved_at || null) : null;
     const source = page ? `${PORTAL_SOURCE}: ${page.source_file}` : lookup === 'PAGE_MISSING' ? 'no page saved' : 'local check only';
@@ -74,8 +81,8 @@ export async function bulkFromSavedPages(a: BulkArgs) {
   for (const r of results) {
     const lookup = lookups.get(r.local.gstin)!;
     rows.push({
-      gstin: r.local.gstin, books_name: r.input.name ?? null, colour: r.colour,
-      finding_type: lookup === 'PAGE_MISSING' || lookup === 'PARSE_FAILED' ? 'technical (not a compliance finding)' : r.colour === 'GREEN' ? 'no issue' : 'verified / review',
+      gstin: r.local.gstin, books_name: r.input.name ?? null, colour: r.colour, category: r.category, findings: r.findings,
+      finding_type: r.category === 'TECHNICAL' ? 'technical (not a compliance finding)' : r.colour === 'GREEN' ? 'no issue' : r.colour === 'RED' ? 'verified finding' : 'review',
       lookup, legal_name: r.record?.legalName ?? null, trade_name: r.record?.tradeName ?? null,
       status: r.record ? (r.record.found ? r.record.status : 'NOT FOUND') : null, registration_date: r.record?.registrationDate ?? null,
       cancellation_date: r.record?.cancellationDate ?? null, address: r.record?.address ?? null, jurisdiction: r.record?.jurisdiction ?? null,
