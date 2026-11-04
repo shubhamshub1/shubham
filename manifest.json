@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "tally-mcp-server-aetherwise",
   "display_name": "Tally Prime (Aetherwise edition)",
-  "version": "7.18.0",
+  "version": "7.19.0",
   "description": "Tally Prime MCP server - Aetherwise edition: reports, XML file import, voucher list/delete, ledger GSTIN and GST duty-head update, supplier GSTIN verification (gstin-verify)",
   "author": {
     "name": "Aetherwise - Shubham Chaturvedi",

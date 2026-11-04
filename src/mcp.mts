@@ -808,11 +808,14 @@ export async function registerMcpServer(): Promise<McpServer> {
     'gstin-verify',
     {
       title: 'Verify Supplier GSTINs',
-      description: `verifies supplier GSTINs (from an .xlsx/.csv such as a GSTR-2A/2B or purchase register export, or a list) and writes an Excel report with GREEN / YELLOW / RED and reasons. checks: local format + check digit, GSTR-1 filing status from the client's own 2A/2B columns, and live registration data (status, legal / trade name, constitution, registration / cancellation date, nature of business) through the authorised gstinapi.in API when GSTINAPI_API_KEY is configured. results are cached on this computer (default 30 days) so a GSTIN is not paid for twice. never scrapes the GST portal. run with dryRun=true first to see how many credits are needed`,
+      description: `verifies supplier GSTINs (from an .xlsx/.csv such as a GSTR-2A/2B or purchase register export, or a list) and writes an Excel report with GREEN / YELLOW / RED and reasons. checks: local format + check digit, GSTR-1 filing status from the client's own 2A/2B columns, and live registration data (status, legal / trade name, constitution, registration / cancellation date, nature of business) through the authorised gstinapi.in API when GSTINAPI_API_KEY is configured. results are cached on this computer (default 30 days) so a GSTIN is not paid for twice. never scrapes the GST portal. set fromTally=true to pull EVERY party-ledger GSTIN straight from Tally and verify them all in one call (no file or list needed). run with dryRun=true first to see how many credits are needed`,
       inputSchema: {
         filePath: z.string().optional().describe('absolute path of .xlsx or .csv with a column whose header contains GSTIN; optional columns: name, bills, taxable, gst, first date, last date, GSTR-1 filing status, fixed monthly (Y/N), remarks'),
         sheetName: z.string().optional(),
         gstins: z.array(z.string()).optional().describe('GSTINs to verify instead of / in addition to filePath'),
+        fromTally: z.boolean().optional().default(false).describe('pull every party-ledger GSTIN straight from Tally (read-only Export) and verify them all - no file or list needed. combine with filePath/gstins to add more'),
+        compareWithTally: z.boolean().optional().default(true).describe('enrich each GSTIN with its Tally party-ledger name for the books-vs-portal name check (read-only)'),
+        targetCompany: z.string().optional().describe('Tally company name when fromTally/compareWithTally is used; default company otherwise'),
         clientName: z.string().describe('client name for the report and audit log'),
         clientProfile: z.enum(['pharmacy', 'trader', 'generic']).optional().default('generic'),
         outputPath: z.string().optional().describe('absolute path for the report .xlsx; default next to filePath or in the Aetherwise data folder'),
@@ -830,7 +833,32 @@ export async function registerMcpServer(): Promise<McpServer> {
         let rows: any[] = [];
         if (args.filePath) rows = await g.readSupplierFile(args.filePath, args.sheetName);
         if (args.gstins?.length) rows = rows.concat(args.gstins.map(x => ({ gstin: x })));
-        if (!rows.length) return { isError: true, content: [{ type: 'text', text: 'no GSTINs found - give filePath or gstins' }] };
+        // read party-ledger GSTINs + names from Tally (read-only). Pull ALL when fromTally is set
+        // or when no file/list was given; otherwise only use it to enrich names.
+        const needTally = args.fromTally || args.compareWithTally !== false || !rows.length;
+        let tallySource = '';
+        if (needTally) {
+          try {
+            const led = await queryCollection('Ledger', ['Name', 'GSTN'], new Map<string, string>(), args.targetCompany);
+            const nameByGstin = new Map<string, string>();
+            let withGstin = 0;
+            for (const l of led) {
+              const gst = String(l.GSTN ?? l.gstn ?? '').trim().toUpperCase();
+              if (!g.GSTIN_RE.test(gst)) continue;
+              withGstin++;
+              if (!nameByGstin.has(gst)) nameByGstin.set(gst, String(l.Name ?? l.name ?? ''));
+            }
+            if (args.fromTally || !rows.length) {
+              const have = new Set(rows.map(r => String(r.gstin || '').trim().toUpperCase()));
+              for (const [gst, nm] of nameByGstin) if (!have.has(gst)) rows.push({ gstin: gst, name: nm });
+              tallySource = `Tally party ledgers (${withGstin} with a GSTIN)`;
+            } else {
+              for (const r of rows) { const k = String(r.gstin || '').trim().toUpperCase(); if (!r.name && nameByGstin.has(k)) r.name = nameByGstin.get(k); }
+              tallySource = `Tally names matched for ${rows.filter(r => r.name).length} of ${rows.length}`;
+            }
+          } catch { tallySource = 'Tally not reachable - used file/list only'; }
+        }
+        if (!rows.length) return { isError: true, content: [{ type: 'text', text: 'no GSTINs found - give filePath, gstins, or set fromTally=true with Tally open' }] };
         const key = process.env.GSTINAPI_API_KEY || '';
         const provider = args.useApi !== false && key ? new g.GstinApiProvider(key) : null;
         const dir = g.dataDir();
@@ -846,7 +874,7 @@ export async function registerMcpServer(): Promise<McpServer> {
         await g.writeReport(out, results, summary, calls);
         const note = args.useApi !== false && !key ? 'GSTINAPI_API_KEY not configured - offline checks only. ' : '';
         const top = results.filter(r => r.colour !== 'GREEN').slice(0, 40).map(r => ({ gstin: r.local.gstin, name: r.input.name || r.record?.legalName || '', colour: r.colour, reasons: r.reasons }));
-        return { content: [{ type: 'text', text: JSON.stringify({ note: note || undefined, report: out, summary, flagged: top }) }] };
+        return { content: [{ type: 'text', text: JSON.stringify({ note: note || undefined, source: tallySource || undefined, report: out, summary, flagged: top }) }] };
       } catch (err) { return { isError: true, content: [{ type: 'text', text: String(err) }] }; }
     }
   );

@@ -21,9 +21,12 @@ GSTN's website policy prohibits scraping and allows access only through interfac
   - `gstin-audit.jsonl` - one line per API call (time, client, GSTIN, endpoint, HTTP status, outcome, credits left). No key is logged.
 
 ## Input
-`.xlsx` or `.csv` with a header containing **GSTIN** (header row auto-detected in the first 30 rows). Optional columns:
-name / trade name, bills, taxable, gst, first date, last date, GSTR-1 filing status, fixed monthly (Y/N), remarks.
-Duplicate GSTINs are merged before any API call.
+One of:
+- **`fromTally=true`** - pull every party-ledger GSTIN straight from Tally (read-only Export) and verify them all in one call. No file needed. This is the one-command bulk route.
+- **`gstins`** - a list of GSTINs.
+- **`filePath`** - an `.xlsx` or `.csv` with a header containing **GSTIN** (header row auto-detected in the first 30 rows). Optional columns: name / trade name, bills, taxable, gst, first date, last date, GSTR-1 filing status, fixed monthly (Y/N), remarks.
+
+They can be combined. With `compareWithTally` (default on) each GSTIN is also matched to its Tally party-ledger name for the books-vs-portal name check. Duplicate GSTINs are merged before any API call.
 
 ## Rules
 | Result | When |

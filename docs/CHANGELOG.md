@@ -1,5 +1,10 @@
 # Change log
 
+## v7.19.0 (Aetherwise edition), 04-Nov-2026 - stable
+* gstin-verify can now pull EVERY party-ledger GSTIN straight from Tally (`fromTally=true`) and verify them all in one call - no file or list needed. This is the one-command "bulk fully auto" route, through the licensed gstinapi.in API (no portal scraping, no captcha). Combine with filePath/gstins to add more; `compareWithTally` (default on) also fills each GSTIN's Tally ledger name for the books-vs-portal name check
+* `dryRun=true` first to see the credit count; `maxApiLookups` caps the run (raise it for a full supplier list)
+* Marked the stable release of the Aetherwise edition: Tally read tools, ledger/voucher create, XML import/delete, and the full compliant GSTIN verification suite (API, saved-page, worklist, tabular status export)
+
 ## v7.18.0 (Aetherwise edition), 02-Nov-2026
 * gstin-worklist-add now also ingests a TABULAR status export in one call: give it an .xlsx/.csv that has a GSTIN column and a registration-status column (the TallyPrime "Validate Party GSTIN/UIN" report exported with Alt+E, or any status report). Every row is matched to the worklist by GSTIN and marked done / not_found - no portal page or paste needed per supplier. readSupplierFile now also reads legal/trade name, status, registration/cancellation date, taxpayer type, constitution and address columns when present
 * This is the officially-supported route: TallyPrime fetches the status from GSTN's authorised e-Way Bill / e-Invoice interface; the connector only reads the file you export (read-only, no portal access)
