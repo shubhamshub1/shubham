@@ -1,5 +1,10 @@
 # Change log
 
+## v7.20.0 (Aetherwise edition), 09-Nov-2026 - ledger-account crash fix
+* FIX: `ledger-account` (and `stock-item-account`) could crash Tally Prime, or fail with `Collection:MyCollection - Could not find description!`, on large companies. Cause: the custom collection was `TYPE Voucher` (every voucher in the company) filtered per-voucher by ledger - very heavy, and on some Tally builds the collection failed to compile and repeated attempts destabilised Tally.
+* Now the collection is scoped with Tally's own ledger/stock-item index: `TYPE "Vouchers : Ledger"` + `CHILDOF <ledger>` (and `"Vouchers : StockItem"` + `CHILDOF <item>`), so Tally returns only that ledger's / item's vouchers without walking the whole day book. Output fields and the pglite table are unchanged.
+* Tip: run connector commands with Tally on the "Gateway of Tally" screen (not inside a voucher/report/dialog), which avoids a separate class of Tally gateway crashes.
+
 ## v7.19.0 (Aetherwise edition), 04-Nov-2026 - stable
 * gstin-verify can now pull EVERY party-ledger GSTIN straight from Tally (`fromTally=true`) and verify them all in one call - no file or list needed. This is the one-command "bulk fully auto" route, through the licensed gstinapi.in API (no portal scraping, no captcha). Combine with filePath/gstins to add more; `compareWithTally` (default on) also fills each GSTIN's Tally ledger name for the books-vs-portal name check
 * `dryRun=true` first to see the credit count; `maxApiLookups` caps the run (raise it for a full supplier list)
